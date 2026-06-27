@@ -45,13 +45,13 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
                     const Icon(Icons.album, size: 100, color: Color(0xFF1DB954)),
                     const SizedBox(height: 16),
                     Text(
-                      album['name'] ?? 'Unknown',
+                      (album['name'] as String?) ?? 'Unknown',
                       style: Theme.of(context).textTheme.headlineSmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      album['artists']?[0]?['name'] ?? 'Unknown artist',
+                      (album['artists']?[0]?['name'] as String?) ?? 'Unknown artist',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     if (album['release_year'] != null) ...[

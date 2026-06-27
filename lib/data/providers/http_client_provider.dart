@@ -45,3 +45,12 @@ final dioProvider = FutureProvider<Dio>((ref) async {
 
   return dio;
 });
+
+/// Sync Dio provider — unwraps [dioProvider] for use in sync Providers.
+final httpClientProvider = Provider<Dio>((ref) {
+  return ref.watch(dioProvider).when(
+    data: (dio) => dio,
+    loading: () => throw Exception('Dio not initialised yet'),
+    error: (err, _) => throw err,
+  );
+});

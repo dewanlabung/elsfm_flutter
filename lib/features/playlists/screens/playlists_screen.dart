@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:elsfm/data/models/playlist_v2.dart';
 import '../providers/playlist_provider.dart';
 
 /// Playlists main screen
@@ -153,7 +154,7 @@ class PlaylistsScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditPlaylistDialog(BuildContext context, WidgetRef ref, dynamic playlist) {
+  void _showEditPlaylistDialog(BuildContext context, WidgetRef ref, PlaylistV2 playlist) {
     final nameController = TextEditingController(text: playlist.name);
     final descController = TextEditingController(text: playlist.description);
 
@@ -189,7 +190,7 @@ class PlaylistsScreen extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              await ref.read(updatePlaylistProvider.notifier).update(
+              await ref.read(updatePlaylistProvider.notifier).updatePlaylist(
                 playlistId: playlist.id,
                 name: nameController.text,
                 description: descController.text.isEmpty ? null : descController.text,

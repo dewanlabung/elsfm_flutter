@@ -15,8 +15,7 @@ class SearchService {
   Future<SearchResults> search({
     required String query,
     int page = 1,
-    int limit = 20,
-    List<String>? filters,
+    int perPage = 20,
   }) async {
     if (query.isEmpty) {
       return SearchResults.empty();
@@ -26,8 +25,7 @@ class SearchService {
       final result = await repository.search(
         query: query,
         page: page,
-        limit: limit,
-        filters: filters,
+        perPage: perPage,
       );
 
       return SearchResults(
@@ -48,14 +46,14 @@ class SearchService {
     int? artistId,
     int? albumId,
     int page = 1,
-    int limit = 50,
+    int perPage = 50,
   }) async {
     try {
       return await repository.searchSongs(
         artistId: artistId,
         albumId: albumId,
         page: page,
-        limit: limit,
+        perPage: perPage,
       );
     } catch (e) {
       throw SearchException('Song search failed: $e');
@@ -65,21 +63,19 @@ class SearchService {
   /// Get trending content
   Future<TrendingResults> getTrending({
     String type = 'songs',
-    String period = 'week',
-    int limit = 50,
+    int perPage = 50,
   }) async {
     try {
       final result = await repository.getTrending(
         type: type,
-        period: period,
-        limit: limit,
+        perPage: perPage,
       );
 
       return TrendingResults(
         songs: result['songs'] as List<Track>? ?? [],
         artists: result['artists'] as List<Artist>? ?? [],
         type: type,
-        period: period,
+        period: 'week',
       );
     } catch (e) {
       throw SearchException('Trending fetch failed: $e');

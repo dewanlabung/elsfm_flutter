@@ -45,14 +45,14 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                     const Icon(Icons.playlist_play, size: 100, color: Color(0xFF1DB954)),
                     const SizedBox(height: 16),
                     Text(
-                      playlist['name'] ?? 'Unknown',
+                      (playlist['name'] as String?) ?? 'Unknown',
                       style: Theme.of(context).textTheme.headlineSmall,
                       textAlign: TextAlign.center,
                     ),
-                    if (playlist['description']?.isNotEmpty ?? false) ...[
+                    if ((playlist['description'] as String?)?.isNotEmpty ?? false) ...[
                       const SizedBox(height: 8),
                       Text(
-                        playlist['description'] ?? '',
+                        (playlist['description'] as String?) ?? '',
                         style: Theme.of(context).textTheme.bodyMedium,
                         textAlign: TextAlign.center,
                       ),

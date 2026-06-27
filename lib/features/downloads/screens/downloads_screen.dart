@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/download_provider.dart';
+import '../services/download_service.dart';
 
 /// Downloads management screen
 class DownloadsScreen extends ConsumerWidget {
@@ -154,25 +155,4 @@ class DownloadsScreen extends ConsumerWidget {
   }
 }
 
-class DownloadStatus {
-  final int trackId;
-  final String title;
-  final int progress;
-  final bool isDownloading;
-  final bool isComplete;
-  final int? fileSizeBytes;
-  final DateTime downloadedAt;
-
-  DownloadStatus({
-    required this.trackId,
-    required this.title,
-    required this.progress,
-    required this.isDownloading,
-    this.isComplete = false,
-    this.fileSizeBytes,
-    DateTime? downloadedAt,
-  }) : downloadedAt = downloadedAt ?? DateTime.now();
-
-  bool get isPending => !isComplete && !isDownloading;
-  bool get isFailed => progress < 100 && !isDownloading && !isComplete;
-}
+// DownloadStatus is defined in download_service.dart.

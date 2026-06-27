@@ -55,7 +55,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen>
                   const Icon(Icons.person, size: 80, color: Color(0xFF1DB954)),
                   const SizedBox(height: 16),
                   Text(
-                    artist['name'] ?? 'Unknown',
+                    (artist['name'] as String?) ?? 'Unknown',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),

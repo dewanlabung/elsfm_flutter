@@ -14,9 +14,10 @@ class BiometricAuthService {
   /// Check if device supports biometric authentication
   Future<bool> canUseBiometrics() async {
     try {
-      return await _localAuth.canCheckBiometrics &&
-          await _localAuth.deviceSupportsFaceID() ||
-          await _localAuth.deviceSupportsFingerprint();
+      final canCheck = await _localAuth.canCheckBiometrics;
+      if (!canCheck) return false;
+      final biometrics = await _localAuth.getAvailableBiometrics();
+      return biometrics.isNotEmpty;
     } catch (e) {
       return false;
     }

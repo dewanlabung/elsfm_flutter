@@ -66,7 +66,7 @@ class UpdatePlaylistNotifier extends AsyncNotifier<bool> {
     return false;
   }
 
-  Future<void> update({
+  Future<void> updatePlaylist({
     required int playlistId,
     String? name,
     String? description,

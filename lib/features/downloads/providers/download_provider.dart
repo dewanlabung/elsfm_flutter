@@ -72,25 +72,4 @@ final totalDownloadSizeProvider = Provider<int>((ref) {
   return service.getTotalDownloadSize();
 });
 
-class DownloadStatus {
-  final int trackId;
-  final String title;
-  final int progress;
-  final bool isDownloading;
-  final bool isComplete;
-  final int? fileSizeBytes;
-  final DateTime downloadedAt;
-
-  DownloadStatus({
-    required this.trackId,
-    required this.title,
-    required this.progress,
-    required this.isDownloading,
-    this.isComplete = false,
-    this.fileSizeBytes,
-    DateTime? downloadedAt,
-  }) : downloadedAt = downloadedAt ?? DateTime.now();
-
-  bool get isPending => !isComplete && !isDownloading;
-  bool get isFailed => progress < 100 && !isDownloading && !isComplete;
-}
+// DownloadStatus is defined in download_service.dart and re-exported via the import above.
