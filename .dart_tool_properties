@@ -1,0 +1,3 @@
+# Dart SDK compiler workaround for Dart 3.12.2 VM JIT crash on macOS
+# Disables aggressive JIT optimizations that cause segmentation faults
+DART_VM_OPTIONS=--use-slow-path

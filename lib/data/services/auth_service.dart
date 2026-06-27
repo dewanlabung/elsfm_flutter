@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../models/user.dart';
 
@@ -6,22 +7,62 @@ class AuthService {
 
   AuthService(this.dio);
 
-  Future<User> loginWithEmail(String email, String password) async {
+  Future<({User user, String? token})> loginWithEmail(
+    String email,
+    String password,
+  ) async {
     try {
+      final loginData = {
+        'email': email,
+        'password': password,
+        'device_name': 'Flutter App',
+      };
+
+      if (kDebugMode) {
+        debugPrint('🔐 Login attempt: POST /auth/login');
+        debugPrint('   BaseURL: ${dio.options.baseUrl}');
+        debugPrint('   Payload: $loginData');
+      }
+
       final response = await dio.post(
-        '/login',
-        data: {
-          'email': email,
-          'password': password,
-        },
+        '/auth/login',
+        data: loginData,
       );
 
-      if (response.statusCode == 200 && response.data != null) {
-        return User.fromJson(response.data['data'] as Map<String, dynamic>);
+      if (kDebugMode) {
+        debugPrint('✓ Login response: ${response.statusCode}');
+        debugPrint('  Data: ${response.data}');
       }
-      throw Exception('Login failed: ${response.data['message'] ?? 'Unknown error'}');
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final token = data['plain_text_token'] ??
+                      data['token'] ??
+                      data['access_token'] as String?;
+
+        final userJson = (data['bootstrapData']?['user'] ??
+            data['user'] ??
+            data['data']) as Map<String, dynamic>;
+
+        if (token != null) {
+          dio.options.headers['Authorization'] = 'Bearer $token';
+        }
+
+        return (user: User.fromJson(userJson), token: token);
+      }
+
+      final message = (response.data as Map<String, dynamic>?)?['message']
+          ?? 'Unknown error (status: ${response.statusCode})';
+      throw Exception('Login failed: $message');
     } on DioException catch (e) {
-      throw Exception('Login error: ${e.message}');
+      if (kDebugMode) {
+        debugPrint('❌ Login error: ${e.type}');
+        debugPrint('   Status: ${e.response?.statusCode}');
+        debugPrint('   Response: ${e.response?.data}');
+      }
+      final message = (e.response?.data as Map<String, dynamic>?)?['message']
+          ?? e.message ?? 'Network error';
+      throw Exception('Login failed: $message');
     }
   }
 
@@ -29,7 +70,9 @@ class AuthService {
     try {
       final response = await dio.get('/user');
       if (response.statusCode == 200 && response.data != null) {
-        return User.fromJson(response.data as Map<String, dynamic>);
+        final data = response.data as Map<String, dynamic>;
+        final userJson = (data['user'] ?? data) as Map<String, dynamic>;
+        return User.fromJson(userJson);
       }
       throw Exception('Failed to get user');
     } on DioException catch (e) {
@@ -39,9 +82,19 @@ class AuthService {
 
   Future<void> logout() async {
     try {
-      await dio.post('/logout');
-    } catch (e) {
+      await dio.post('/auth/logout');
+    } catch (_) {
       // Ignore errors on logout
+    } finally {
+      dio.options.headers.remove('Authorization');
     }
+  }
+
+  void setToken(String token) {
+    dio.options.headers['Authorization'] = 'Bearer $token';
+  }
+
+  void clearToken() {
+    dio.options.headers.remove('Authorization');
   }
 }
