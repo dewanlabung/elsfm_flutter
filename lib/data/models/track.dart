@@ -1,45 +1,57 @@
 import 'album.dart';
 import 'artist.dart';
+import 'image_helper.dart';
 
 class Track {
   final int id;
   final String name;
+  final String? image;
   final Duration duration;
+  /// Stream URL — not present in list/detail responses.
+  /// Set externally when playback is requested via the stream endpoint.
   final String src;
   final Album? album;
   final List<Artist> artists;
-  final int views;
+  /// `plays` comes as a string from the API (e.g. "75").
+  final int plays;
   final DateTime? createdAt;
 
   Track({
     required this.id,
     required this.name,
+    this.image,
     required this.duration,
     required this.src,
     this.album,
     required this.artists,
-    required this.views,
+    required this.plays,
     this.createdAt,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) {
     // BeMusic stores duration in milliseconds (e.g. 348000 = 5m48s).
     final durationMs = (json['duration'] as num?)?.toInt() ?? 0;
-    // `src` / `url` is not returned in list responses; it must be fetched
-    // from the track detail endpoint when playback is requested.
+    // `src` / `url` / `stream_url` is not returned by the API.
+    // It must be set later via the stream endpoint when playback is requested.
     final src = json['src'] as String? ?? json['url'] as String? ?? '';
     return Track(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
+      image: resolveImageUrl(json['image'] as String?),
       duration: Duration(milliseconds: durationMs),
       src: src,
-      album: json['album'] != null ? Album.fromJson(json['album'] as Map<String, dynamic>) : null,
+      album: json['album'] != null
+          ? Album.fromJson(json['album'] as Map<String, dynamic>)
+          : null,
       artists: (json['artists'] as List<dynamic>?)
               ?.map((e) => Artist.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      views: int.tryParse(json['views']?.toString() ?? '') ?? 0,
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
+      // `plays` is returned as a string (e.g. "75"), not an int.
+      plays: int.tryParse(json['plays']?.toString() ?? '0') ?? 0,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String)
+          : null,
     );
   }
 
@@ -47,11 +59,12 @@ class Track {
     return {
       'id': id,
       'name': name,
-      'duration': duration.inSeconds,
+      'image': image,
+      'duration': duration.inMilliseconds,
       'src': src,
       'album': album?.toJson(),
       'artists': artists.map((e) => e.toJson()).toList(),
-      'views': views,
+      'plays': plays,
       'created_at': createdAt?.toIso8601String(),
     };
   }

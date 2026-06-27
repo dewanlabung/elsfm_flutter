@@ -1,4 +1,5 @@
 import 'artist.dart';
+import 'image_helper.dart';
 
 class Album {
   final int id;
@@ -29,7 +30,7 @@ class Album {
     return Album(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
-      image: json['image'] as String?,
+      image: resolveImageUrl(json['image'] as String?),
       releaseYear: releaseYear,
       artists: (json['artists'] as List<dynamic>?)
               ?.map((e) => Artist.fromJson(e as Map<String, dynamic>))
