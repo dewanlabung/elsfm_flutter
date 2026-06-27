@@ -43,6 +43,13 @@ class AudioStreamingService {
         quality: quality,
       );
 
+      // Validate the stream URL before passing it to the audio player.
+      // Only HTTPS URLs from the trusted elsfm.com host are allowed.
+      final uri = Uri.tryParse(streamUrl);
+      if (uri == null || uri.scheme != 'https' || uri.host != 'www.elsfm.com') {
+        throw AudioStreamException('Invalid or untrusted stream URL: $streamUrl');
+      }
+
       await audioPlayer.setUrl(streamUrl);
     } on AudioStreamException {
       rethrow;

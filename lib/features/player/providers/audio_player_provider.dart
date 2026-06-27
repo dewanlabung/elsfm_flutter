@@ -1,21 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
+import 'package:just_audio/just_audio.dart';
 import '../services/audio_streaming_service.dart';
+import '../../../data/providers/http_client_provider.dart';
 
-/// Provider for audio streaming service (singleton)
+/// Provider for audio streaming service.
+///
+/// Uses the authenticated [dioProvider] so the service inherits the
+/// Authorization header that is set after login. Disposes the service
+/// (and its underlying AudioPlayer) when the provider is removed.
 final audioStreamingServiceProvider = Provider<AudioStreamingService>((ref) {
-  // Get Dio instance from dependency injection
-  // In a real app, this would come from a proper DI container
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: 'https://www.elsfm.com',
-      headers: {
-        'Authorization': 'Bearer YOUR_TOKEN_HERE', // Token would come from auth provider
-      },
-    ),
-  );
-
-  return AudioStreamingService(dio: dio);
+  final dio = ref.watch(dioProvider).requireValue;
+  final service = AudioStreamingService(dio: dio);
+  ref.onDispose(() => service.dispose());
+  return service;
 });
 
 /// Provider for audio player position stream
@@ -25,9 +22,9 @@ final audioPlayerPositionProvider = StreamProvider<Duration>((ref) {
 });
 
 /// Provider for audio player state stream
-final audioPlayerStateProvider = StreamProvider<Duration>((ref) {
+final audioPlayerStateProvider = StreamProvider<PlayerState>((ref) {
   final audioService = ref.watch(audioStreamingServiceProvider);
-  return audioService.getPositionStream();
+  return audioService.getPlayerStateStream();
 });
 
 /// Provider for current playback position (not a stream)

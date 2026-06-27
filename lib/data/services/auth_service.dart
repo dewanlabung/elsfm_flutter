@@ -19,10 +19,7 @@ class AuthService {
       };
 
       if (kDebugMode) {
-        debugPrint('🔐 Login attempt: POST /auth/login');
-        debugPrint('   BaseURL: ${dio.options.baseUrl}');
-        debugPrint('   Headers: ${dio.options.headers}');
-        debugPrint('   Payload: $loginData');
+        debugPrint('🔐 Login attempt: POST ${dio.options.baseUrl}/auth/login');
       }
 
       final response = await dio.post(
@@ -35,10 +32,6 @@ class AuthService {
 
       if (kDebugMode) {
         debugPrint('✓ Login response: ${response.statusCode}');
-        debugPrint('   Data keys: ${(response.data as Map<String, dynamic>?)?.keys.toList()}');
-        if (response.statusCode != 200) {
-          debugPrint('   Full Response: ${response.toString()}');
-        }
       }
 
       if (response.statusCode == 200 && response.data != null) {
