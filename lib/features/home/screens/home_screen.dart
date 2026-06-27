@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/channels_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -13,6 +14,13 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('ELSFM'),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite),
+            onPressed: () => context.go('/library'),
+            tooltip: 'Library',
+          ),
+        ],
       ),
       body: channelsAsync.when(
         loading: () => const Center(

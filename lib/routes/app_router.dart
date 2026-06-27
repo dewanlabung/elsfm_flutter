@@ -5,6 +5,7 @@ import '../features/search/screens/search_screen.dart';
 import '../features/artist/screens/artist_screen.dart';
 import '../features/album/screens/album_screen.dart';
 import '../features/playlist/screens/playlist_screen.dart';
+import '../features/library/screens/library_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -37,6 +38,10 @@ final appRouter = GoRouter(
         final id = int.parse(state.pathParameters['id'] ?? '0');
         return PlaylistScreen(playlistId: id);
       },
+    ),
+    GoRoute(
+      path: '/library',
+      builder: (context, state) => const LibraryScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(
