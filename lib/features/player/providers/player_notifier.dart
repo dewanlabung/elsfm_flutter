@@ -48,7 +48,11 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
     if (startIndex > 0) {
       await playerService.audioPlayer.seek(Duration.zero, index: startIndex);
     }
+    await playerService.play();
   }
+
+  /// Convenience method to play a single track immediately.
+  Future<void> playTrack(Track track) => setQueue([track]);
 
   Future<void> play() async {
     state = state.copyWith(isLoading: true);

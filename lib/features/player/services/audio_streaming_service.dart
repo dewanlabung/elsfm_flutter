@@ -9,39 +9,27 @@ class AudioStreamingService {
 
   AudioStreamingService({required this.dio});
 
-  /// Get stream URL for a track at specific quality
-  Future<String> getStreamUrl({
-    required int trackId,
-    required String quality,
-  }) async {
-    try {
-      final response = await dio.get(
-        '/api/v1/tracks/$trackId/stream',
-        queryParameters: {
-          'quality': quality,
-        },
-      );
-
-      if (response.data?['url'] == null) {
-        throw AudioStreamException('No stream URL returned from API');
-      }
-
-      return response.data['url'] as String;
-    } on DioException catch (e) {
-      throw AudioStreamException('Failed to get stream URL: $e');
-    }
+  /// Returns the stream URL for a given track ID.
+  ///
+  /// The BeMusic stream endpoint (`/tracks/{id}/stream`) is a direct audio
+  /// stream — it does NOT return JSON. We construct the full URL here and let
+  /// just_audio stream it directly, passing the Authorization header so the
+  /// server accepts the authenticated request.
+  String buildStreamUrl(int trackId) {
+    final baseUrl = dio.options.baseUrl.replaceAll(RegExp(r'/$'), '');
+    return '$baseUrl/tracks/$trackId/stream';
   }
 
-  /// Load a track for playback
+  /// Load a track for playback using the stream endpoint.
+  ///
+  /// Passes the Authorization header from [dio] so authenticated users can
+  /// stream tracks without being redirected to the login page.
   Future<void> loadTrack({
     required Track track,
-    required String quality,
+    String quality = 'high',
   }) async {
     try {
-      final streamUrl = await getStreamUrl(
-        trackId: track.id,
-        quality: quality,
-      );
+      final streamUrl = buildStreamUrl(track.id);
 
       // Validate the stream URL before passing it to the audio player.
       // Only HTTPS URLs from the trusted elsfm.com host are allowed.
@@ -50,7 +38,17 @@ class AudioStreamingService {
         throw AudioStreamException('Invalid or untrusted stream URL: $streamUrl');
       }
 
-      await audioPlayer.setUrl(streamUrl);
+      // Forward the Authorization header so just_audio can authenticate.
+      final authHeader = dio.options.headers['Authorization'] as String?;
+      final headers = <String, String>{
+        'Accept': '*/*',
+        'User-Agent': dio.options.headers['User-Agent'] as String? ?? '',
+        if (authHeader != null) 'Authorization': authHeader,
+      };
+
+      await audioPlayer.setAudioSource(
+        AudioSource.uri(Uri.parse(streamUrl), headers: headers),
+      );
     } on AudioStreamException {
       rethrow;
     } catch (e) {

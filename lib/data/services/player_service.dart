@@ -4,12 +4,33 @@ import 'package:just_audio/just_audio.dart';
 import '../models/player_state.dart' as ps;
 import '../models/track.dart';
 import 'audio_service_handler.dart';
+import '../../config/app_config.dart';
 
 class PlayerService {
   final AudioPlayer _audioPlayer = AudioPlayer();
   late ConcatenatingAudioSource _playlist;
   AudioHandler? _audioHandler;
   List<Track> _tracksList = [];
+
+  /// Optional Bearer token forwarded to just_audio for authenticated streaming.
+  String? _authToken;
+
+  /// Update the auth token used for stream requests. Call this after login.
+  void setAuthToken(String? token) => _authToken = token;
+
+  /// Constructs the stream URL for a track.
+  ///
+  /// BeMusic serves audio at `{apiBaseUrl}/tracks/{id}/stream`. The URL is
+  /// consumed directly by just_audio; no redirect or JSON response is expected.
+  String _streamUrl(int trackId) {
+    final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
+    return '$base/tracks/$trackId/stream';
+  }
+
+  Map<String, String> get _authHeaders => {
+    'Accept': '*/*',
+    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+  };
 
   Future<void> init({List<Track>? tracks}) async {
     final session = await AudioSession.instance;
@@ -32,11 +53,12 @@ class PlayerService {
 
   Future<void> setQueue(List<Track> tracks) async {
     _tracksList = List<Track>.from(tracks);
-    _playlist.clear();
+    await _playlist.clear();
     for (final track in tracks) {
-      _playlist.add(
+      await _playlist.add(
         AudioSource.uri(
-          Uri.parse(track.src),
+          Uri.parse(_streamUrl(track.id)),
+          headers: _authHeaders,
         ),
       );
     }
@@ -65,13 +87,17 @@ class PlayerService {
       final shuffled = List<Track>.from(_tracksList)..shuffle();
       await _playlist.clear();
       for (final track in shuffled) {
-        await _playlist.add(AudioSource.uri(Uri.parse(track.src)));
+        await _playlist.add(
+          AudioSource.uri(Uri.parse(_streamUrl(track.id)), headers: _authHeaders),
+        );
       }
     } else {
       // Rebuild playlist in original order
       await _playlist.clear();
       for (final track in _tracksList) {
-        await _playlist.add(AudioSource.uri(Uri.parse(track.src)));
+        await _playlist.add(
+          AudioSource.uri(Uri.parse(_streamUrl(track.id)), headers: _authHeaders),
+        );
       }
     }
   }

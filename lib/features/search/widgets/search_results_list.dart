@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/search_state.dart';
 import 'package:elsfm/data/models/track.dart';
+import 'package:elsfm/features/player/providers/player_notifier.dart';
 
 /// Search results display widget
-class SearchResultsList extends StatelessWidget {
+class SearchResultsList extends ConsumerWidget {
   final SearchState state;
 
   const SearchResultsList({
@@ -12,7 +14,7 @@ class SearchResultsList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
       length: 3,
       child: Column(
@@ -28,7 +30,7 @@ class SearchResultsList extends StatelessWidget {
             child: TabBarView(
               children: [
                 // Songs tab
-                _buildSongsList(state.results?.songs ?? []),
+                _buildSongsList(state.results?.songs ?? [], ref),
                 // Artists tab
                 _buildArtistsList(state.results?.artists ?? []),
                 // Playlists tab
@@ -41,7 +43,7 @@ class SearchResultsList extends StatelessWidget {
     );
   }
 
-  Widget _buildSongsList(List<Track> songs) {
+  Widget _buildSongsList(List<Track> songs, WidgetRef ref) {
     if (songs.isEmpty) {
       return const Center(child: Text('No songs found'));
     }
@@ -68,7 +70,7 @@ class SearchResultsList extends StatelessWidget {
           ),
           trailing: Text('${song.duration.inMinutes}:${(song.duration.inSeconds % 60).toString().padLeft(2, '0')}'),
           onTap: () {
-            // Play song
+            ref.read(playerProvider.notifier).playTrack(song);
           },
         );
       },
