@@ -7,6 +7,7 @@ import '../features/album/screens/album_screen.dart';
 import '../features/playlist/screens/playlist_screen.dart';
 import '../features/library/screens/library_screen.dart';
 import '../features/downloads/screens/downloads_screen.dart';
+import '../features/player/screens/now_playing_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -47,6 +48,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/downloads',
       builder: (context, state) => const DownloadsScreen(),
+    ),
+    GoRoute(
+      path: '/now-playing',
+      builder: (context, state) => const NowPlayingScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

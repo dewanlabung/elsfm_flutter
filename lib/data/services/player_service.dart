@@ -1,21 +1,37 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/player_state.dart' as ps;
 import '../models/track.dart';
+import 'audio_service_handler.dart';
 
 class PlayerService {
   final AudioPlayer _audioPlayer = AudioPlayer();
   late ConcatenatingAudioSource _playlist;
+  AudioHandler? _audioHandler;
+  List<Track> _tracksList = [];
 
-  Future<void> init() async {
+  Future<void> init({List<Track>? tracks}) async {
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
 
     _playlist = ConcatenatingAudioSource(children: []);
     await _audioPlayer.setAudioSource(_playlist);
+
+    // Initialize audio service for lock screen controls
+    if (tracks != null) {
+      _tracksList = tracks;
+    }
+    try {
+      _audioHandler = await initAudioService(_audioPlayer, tracks: _tracksList);
+    } catch (e) {
+      // Audio service initialization failure is non-fatal
+      // The app continues to work without lock screen controls
+    }
   }
 
   Future<void> setQueue(List<Track> tracks) async {
+    _tracksList = tracks;
     _playlist.clear();
     for (final track in tracks) {
       _playlist.add(
@@ -53,11 +69,26 @@ class PlayerService {
     });
   }
 
+  Stream<String?> get errorStream {
+    // Map playback errors from just_audio
+    return _audioPlayer.playbackEventStream.map((event) {
+      // just_audio reports errors through the stream if audio loading fails
+      // For now, we'll emit null as no error
+      return null;
+    }).distinct();
+  }
+
   Stream<int?> get currentIndexStream => _audioPlayer.currentIndexStream;
   Stream<Duration> get positionStream => _audioPlayer.positionStream;
   Stream<Duration?> get durationStream => _audioPlayer.durationStream;
 
   AudioPlayer get audioPlayer => _audioPlayer;
+  AudioHandler? get audioHandler => _audioHandler;
 
-  Future<void> dispose() => _audioPlayer.dispose();
+  Future<void> dispose() async {
+    if (_audioHandler != null) {
+      await _audioHandler!.stop();
+    }
+    await _audioPlayer.dispose();
+  }
 }

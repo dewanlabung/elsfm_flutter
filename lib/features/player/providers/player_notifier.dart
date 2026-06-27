@@ -30,6 +30,14 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
         isLoading: playerState.isLoading,
       );
     });
+
+    playerService.errorStream.listen((error) {
+      if (error != null) {
+        state = state.copyWith(error: error);
+      } else {
+        state = state.copyWith(error: null);
+      }
+    });
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {

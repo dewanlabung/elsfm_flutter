@@ -1,8 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elsfm/data/models/player_state.dart';
-import 'package:elsfm/data/models/track.dart';
-import 'package:elsfm/data/models/artist.dart';
-import 'package:elsfm/features/player/providers/player_notifier.dart';
 
 void main() {
   group('PlayerNotifier', () {

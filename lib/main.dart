@@ -10,6 +10,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.init();
 
+  // Note: AudioService initialization happens lazily when playerProvider is accessed
+  // This avoids issues with service initialization during app startup
+
   runApp(
     const ProviderScope(
       child: ElsfmApp(),
