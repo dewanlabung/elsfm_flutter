@@ -20,7 +20,7 @@ class PlayerService {
 
     // Initialize audio service for lock screen controls
     if (tracks != null) {
-      _tracksList = tracks;
+      _tracksList = List<Track>.from(tracks);
     }
     try {
       _audioHandler = await initAudioService(_audioPlayer, tracks: _tracksList);
@@ -31,7 +31,7 @@ class PlayerService {
   }
 
   Future<void> setQueue(List<Track> tracks) async {
-    _tracksList = tracks;
+    _tracksList = List<Track>.from(tracks);
     _playlist.clear();
     for (final track in tracks) {
       _playlist.add(
@@ -41,6 +41,9 @@ class PlayerService {
       );
     }
   }
+
+  /// Returns an unmodifiable view of the current queue.
+  List<Track> get queue => List.unmodifiable(_tracksList);
 
   Future<void> play() => _audioPlayer.play();
   Future<void> pause() => _audioPlayer.pause();
@@ -54,9 +57,23 @@ class PlayerService {
 
   Future<void> setLoopMode(LoopMode mode) => _audioPlayer.setLoopMode(mode);
 
-  void setShuffle(bool shuffle) {
-    // Shuffle is managed at the playlist level for now
-    // Can be extended later with custom shuffle implementation
+  /// Enables or disables shuffle. When enabling, rebuilds the playlist from a
+  /// shuffled copy so the original [_tracksList] order is preserved for
+  /// when shuffle is later disabled.
+  Future<void> setShuffle(bool shuffle) async {
+    if (shuffle) {
+      final shuffled = List<Track>.from(_tracksList)..shuffle();
+      await _playlist.clear();
+      for (final track in shuffled) {
+        await _playlist.add(AudioSource.uri(Uri.parse(track.src)));
+      }
+    } else {
+      // Rebuild playlist in original order
+      await _playlist.clear();
+      for (final track in _tracksList) {
+        await _playlist.add(AudioSource.uri(Uri.parse(track.src)));
+      }
+    }
   }
 
   Stream<ps.PlayerState> get playerStateStream {

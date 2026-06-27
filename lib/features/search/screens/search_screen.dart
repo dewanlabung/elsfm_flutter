@@ -117,7 +117,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
                 // Show recent searches if query is empty
                 if (state.query.isEmpty && recentSearches.isNotEmpty) {
-                  return _buildRecentSearches(recentSearches);
+                  return RecentSearchList(searches: recentSearches);
                 }
 
                 // Show trending
@@ -126,7 +126,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 }
 
                 // Empty state
-                return _buildEmptyState();
+                return const SearchEmptyState();
               },
             ),
           ),
@@ -134,8 +134,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
     );
   }
+}
 
-  Widget _buildRecentSearches(List<String> searches) {
+/// Displays the list of recent searches with clear controls.
+class RecentSearchList extends ConsumerWidget {
+  final List<String> searches;
+
+  const RecentSearchList({super.key, required this.searches});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -166,16 +174,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               },
             ),
             onTap: () {
-              _searchController.text = search;
-              _onSearchSubmitted(search);
+              ref.read(recentSearchesProvider.notifier).addSearch(search);
+              ref.read(debouncedSearchProvider.notifier).search(search);
             },
           );
         }),
       ],
     );
   }
+}
 
-  Widget _buildEmptyState() {
+/// Placeholder shown when there are no results, trending content, or recent searches.
+class SearchEmptyState extends StatelessWidget {
+  const SearchEmptyState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

@@ -1,7 +1,10 @@
+import 'track.dart';
+
 enum RepeatMode { none, one, all }
 
 class PlayerState {
   final List<int> queue; // Queue of track IDs
+  final List<Track> tracks; // Full track objects for the queue
   final int? currentIndex;
   final Duration position;
   final Duration duration;
@@ -14,6 +17,7 @@ class PlayerState {
 
   const PlayerState({
     required this.queue,
+    this.tracks = const [],
     this.currentIndex,
     this.position = Duration.zero,
     this.duration = Duration.zero,
@@ -25,11 +29,17 @@ class PlayerState {
     this.error,
   });
 
+  Track? get currentTrack =>
+      currentIndex != null && currentIndex! >= 0 && currentIndex! < tracks.length
+          ? tracks[currentIndex!]
+          : null;
+
   bool get hasNext => currentIndex != null && currentIndex! < queue.length - 1;
   bool get hasPrevious => currentIndex != null && currentIndex! > 0;
 
   PlayerState copyWith({
     List<int>? queue,
+    List<Track>? tracks,
     int? currentIndex,
     Duration? position,
     Duration? duration,
@@ -42,6 +52,7 @@ class PlayerState {
   }) {
     return PlayerState(
       queue: queue ?? this.queue,
+      tracks: tracks ?? this.tracks,
       currentIndex: currentIndex ?? this.currentIndex,
       position: position ?? this.position,
       duration: duration ?? this.duration,

@@ -44,4 +44,15 @@ class AuthStateData {
       user: user ?? this.user,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AuthStateData &&
+          state == other.state &&
+          errorMessage == other.errorMessage &&
+          user == other.user;
+
+  @override
+  int get hashCode => Object.hash(state, errorMessage, user);
 }
