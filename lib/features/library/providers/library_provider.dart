@@ -1,52 +1,49 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../data/models/track.dart';
-import '../../../data/models/album.dart';
-import '../../../data/models/playlist.dart';
-import '../../../data/providers/api_client_provider.dart';
-import '../../auth/providers/auth_notifier.dart';
-import '../../auth/models/auth_state.dart';
+import 'package:elsfm/data/providers/http_client_provider.dart';
+import 'package:elsfm/data/repositories/user_library_repository.dart';
+import '../services/library_service.dart';
+import 'package:elsfm/data/models/track.dart';
 
-final likedTracksProvider = FutureProvider<List<Track>>((ref) async {
-  final authState = ref.watch(authNotifierProvider);
-  if (authState.state != AuthState.authenticated || authState.user == null) {
-    return [];
-  }
-
-  final apiClient = ref.watch(apiClientProvider);
-  try {
-    final response = await apiClient.getLikedTracks(authState.user!.id);
-    return response.data;
-  } catch (e) {
-    throw Exception('Failed to fetch liked tracks: $e');
-  }
+/// Library repository provider
+final libraryRepositoryProvider = Provider<UserLibraryRepository>((ref) {
+  final dio = ref.watch(httpClientProvider);
+  return UserLibraryRepository(dio: dio);
 });
 
-final likedAlbumsProvider = FutureProvider<List<Album>>((ref) async {
-  final authState = ref.watch(authNotifierProvider);
-  if (authState.state != AuthState.authenticated || authState.user == null) {
-    return [];
-  }
-
-  final apiClient = ref.watch(apiClientProvider);
-  try {
-    final response = await apiClient.getLikedAlbums(authState.user!.id);
-    return response.data;
-  } catch (e) {
-    throw Exception('Failed to fetch liked albums: $e');
-  }
+/// Library service provider
+final libraryServiceProvider = Provider<LibraryService>((ref) {
+  final repository = ref.watch(libraryRepositoryProvider);
+  return LibraryService(repository: repository);
 });
 
-final userPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
-  final authState = ref.watch(authNotifierProvider);
-  if (authState.state != AuthState.authenticated || authState.user == null) {
-    return [];
-  }
-
-  final apiClient = ref.watch(apiClientProvider);
-  try {
-    final response = await apiClient.getUserPlaylists(authState.user!.id);
-    return response.data;
-  } catch (e) {
-    throw Exception('Failed to fetch user playlists: $e');
-  }
+/// Favorites provider
+final favoritesProvider = FutureProvider<List<Track>>((ref) async {
+  final service = ref.watch(libraryServiceProvider);
+  return await service.getFavorites();
 });
+
+/// History provider
+final historyProvider = FutureProvider<List<Track>>((ref) async {
+  final service = ref.watch(libraryServiceProvider);
+  return await service.getHistory();
+});
+
+/// Top tracks provider
+final topTracksProvider = FutureProvider.family<List<Track>, String>((ref, period) async {
+  final service = ref.watch(libraryServiceProvider);
+  return await service.getTopTracks(period: period);
+});
+
+/// Favorite toggle notifier
+class FavoriteToggleNotifier extends StateNotifier<Map<int, bool>> {
+  FavoriteToggleNotifier(super.state);
+
+  void toggle(int trackId, bool isFavorited) {
+    state = {...state, trackId: isFavorited};
+  }
+}
+
+/// Favorite toggle provider
+final favoriteToggleProvider = StateNotifierProvider<FavoriteToggleNotifier, Map<int, bool>>(
+  (ref) => FavoriteToggleNotifier({}),
+);
