@@ -39,10 +39,12 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
   Future<void> loginWithGoogle(BuildContext context) async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
+      // WebView navigation set Sanctum session cookie in Dio cookie jar
+      // Validate the session by fetching the current user
       final user = await authService.getCurrentUser();
       state = AuthStateData.authenticated(user);
     } catch (e) {
-      state = AuthStateData.error(e.toString());
+      state = AuthStateData.error('Google sign-in failed: ${e.toString()}');
     }
   }
 
