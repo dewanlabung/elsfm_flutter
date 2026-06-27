@@ -5,6 +5,7 @@ import '../../../data/providers/http_client_provider.dart';
 import '../../../data/services/auth_service.dart';
 import '../models/auth_state.dart';
 import '../services/dev_auth_helper.dart';
+import '../services/google_sign_in_service.dart';
 
 const _tokenKey = 'auth_token';
 
@@ -57,8 +58,24 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
   Future<void> loginWithGoogle(BuildContext context) async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
-      final user = await authService.getCurrentUser();
-      state = AuthStateData.authenticated(user);
+
+      final googleService = GoogleSignInService();
+      final googleResult = await googleService.signInWithGoogle();
+
+      if (googleResult.idToken == null || googleResult.email == null) {
+        throw Exception('Google sign-in failed: Missing credentials');
+      }
+
+      final result = await authService.loginWithGoogle(
+        googleResult.idToken!,
+        googleResult.email!,
+      );
+
+      if (result.token != null) {
+        await secureStorage.write(key: _tokenKey, value: result.token!);
+      }
+
+      state = AuthStateData.authenticated(result.user);
     } catch (e) {
       state = AuthStateData.error('Google sign-in failed: ${e.toString()}');
     }

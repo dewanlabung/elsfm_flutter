@@ -99,6 +99,67 @@ class AuthService {
     }
   }
 
+  Future<({User user, String? token})> loginWithGoogle(
+    String idToken,
+    String email,
+  ) async {
+    try {
+      final loginData = {
+        'id_token': idToken,
+        'email': email,
+        'provider': 'google',
+        'token_name': 'ELSFM Flutter App',
+      };
+
+      if (kDebugMode) {
+        debugPrint('🔐 Google login attempt: POST /auth/google');
+        debugPrint('   Email: $email');
+      }
+
+      final response = await dio.post(
+        '/auth/google',
+        data: loginData,
+        options: Options(contentType: 'application/json'),
+      );
+
+      if (kDebugMode) {
+        debugPrint('✓ Google login response: ${response.statusCode}');
+      }
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+
+        final token = (data['accessToken'] ??
+                      data['access_token'] ??
+                      data['plain_text_token'] ??
+                      data['token']) as String?;
+
+        if (token != null) {
+          dio.options.headers['Authorization'] = 'Bearer $token';
+        }
+
+        final userJson = data['user'] as Map<String, dynamic>?;
+        if (userJson == null) {
+          throw Exception('Google login failed: No user data in response');
+        }
+
+        final user = User.fromJson(userJson);
+        if (kDebugMode) {
+          debugPrint('✓ Google login successful: user=${user.email}');
+        }
+
+        return (user: user, token: token);
+      }
+
+      throw Exception('Google login failed: Invalid response');
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Google login error: ${e.response?.statusCode}');
+      }
+      throw Exception('Google login failed: ${e.message}');
+    }
+  }
+
   Future<void> logout() async {
     try {
       await dio.post('/auth/logout');
