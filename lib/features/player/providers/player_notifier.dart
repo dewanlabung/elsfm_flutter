@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
@@ -8,54 +6,43 @@ import '../../../data/services/player_service.dart';
 
 class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   final PlayerService playerService;
-  final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   PlayerNotifier(this.playerService) : super(const player_models.PlayerState(queue: [])) {
     _initListeners();
   }
 
   void _initListeners() {
-    _subscriptions.add(
-      playerService.currentIndexStream.listen((index) {
-        state = state.copyWith(currentIndex: index);
-      }),
-    );
+    playerService.currentIndexStream.listen((index) {
+      state = state.copyWith(currentIndex: index);
+    });
 
-    _subscriptions.add(
-      playerService.positionStream.listen((position) {
-        state = state.copyWith(position: position);
-      }),
-    );
+    playerService.positionStream.listen((position) {
+      state = state.copyWith(position: position);
+    });
 
-    _subscriptions.add(
-      playerService.durationStream.listen((duration) {
-        state = state.copyWith(duration: duration ?? Duration.zero);
-      }),
-    );
+    playerService.durationStream.listen((duration) {
+      state = state.copyWith(duration: duration ?? Duration.zero);
+    });
 
-    _subscriptions.add(
-      playerService.playerStateStream.listen((playerState) {
-        state = state.copyWith(
-          isPlaying: playerState.isPlaying,
-          isLoading: playerState.isLoading,
-        );
-      }),
-    );
+    playerService.playerStateStream.listen((playerState) {
+      state = state.copyWith(
+        isPlaying: playerState.isPlaying,
+        isLoading: playerState.isLoading,
+      );
+    });
 
-    _subscriptions.add(
-      playerService.errorStream.listen((error) {
-        if (error != null) {
-          state = state.copyWith(error: error);
-        } else {
-          state = state.copyWith(error: null);
-        }
-      }),
-    );
+    playerService.errorStream.listen((error) {
+      if (error != null) {
+        state = state.copyWith(error: error);
+      } else {
+        state = state.copyWith(error: null);
+      }
+    });
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
     final queueIds = tracks.map((t) => t.id).toList();
-    state = state.copyWith(queue: queueIds, currentIndex: startIndex);
+    state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex);
     await playerService.setQueue(tracks);
     await playerService.seek(Duration.zero);
     if (startIndex > 0) {
@@ -135,12 +122,8 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   }
 
   @override
-  void dispose() {
-    for (final sub in _subscriptions) {
-      sub.cancel();
-    }
-    _subscriptions.clear();
-    playerService.dispose();
+  Future<void> dispose() async {
+    await playerService.dispose();
     super.dispose();
   }
 }
@@ -157,7 +140,7 @@ final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.Playe
 
   return playerServiceAsync.when(
     data: (playerService) => PlayerNotifier(playerService),
-    loading: () => PlayerNotifier(PlayerService()..init()),
-    error: (err, st) => PlayerNotifier(PlayerService()..init()),
+    loading: () => PlayerNotifier(PlayerService()),
+    error: (err, st) => PlayerNotifier(PlayerService()),
   );
 });

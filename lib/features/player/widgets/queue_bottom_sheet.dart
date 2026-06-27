@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/player_provider.dart';
 import 'queue_view.dart';
 
 /// Bottom sheet displaying the current queue

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/player_provider.dart';
+import '../providers/player_notifier.dart';
 
 /// Queue view widget showing upcoming songs
 class QueueView extends ConsumerWidget {
@@ -11,8 +11,9 @@ class QueueView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playerState = ref.watch(playerProvider);
+    final tracks = playerState.tracks;
 
-    if (playerState.queue.isEmpty) {
+    if (tracks.isEmpty) {
       return Center(
         child: Text(
           'Queue is empty',
@@ -23,10 +24,10 @@ class QueueView extends ConsumerWidget {
 
     return ListView.builder(
       controller: scrollController,
-      itemCount: playerState.queue.length,
+      itemCount: tracks.length,
       itemBuilder: (context, index) {
-        final track = playerState.queue[index];
-        final isCurrentTrack = playerState.currentTrack?.id == track.id;
+        final track = tracks[index];
+        final isCurrentTrack = playerState.currentIndex == index;
 
         return ListTile(
           key: ValueKey(track.id),
@@ -55,12 +56,7 @@ class QueueView extends ConsumerWidget {
             },
           ),
           onTap: () {
-            if (index < playerState.queue.length) {
-              ref.read(playerProvider.notifier).loadQueue(
-                    playerState.queue,
-                    startIndex: index,
-                  );
-            }
+            ref.read(playerProvider.notifier).setQueue(tracks, startIndex: index);
           },
         );
       },

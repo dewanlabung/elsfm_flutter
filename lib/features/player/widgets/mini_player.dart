@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/player_provider.dart';
+import '../providers/player_notifier.dart';
 
 /// Mini player widget for bottom of screen
 class MiniPlayer extends ConsumerWidget {
@@ -42,7 +42,7 @@ class MiniPlayer extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: const Icon(Icons.music_note, size: 20),

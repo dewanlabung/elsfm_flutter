@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/player_provider.dart';
-import '../services/player_service.dart';
+import '../providers/player_notifier.dart';
+import 'package:elsfm/data/models/player_state.dart';
 
 /// Playback controls widget (shuffle, previous, play/pause, next, repeat)
 class PlaybackControls extends ConsumerWidget {
@@ -61,12 +61,12 @@ class PlaybackControls extends ConsumerWidget {
           IconButton(
             icon: Icon(
               _getRepeatIcon(playerState.repeatMode),
-              color: playerState.repeatMode != RepeatMode.off
+              color: playerState.repeatMode != RepeatMode.none
                   ? Theme.of(context).colorScheme.primary
                   : null,
             ),
             onPressed: () {
-              ref.read(playerProvider.notifier).cycleRepeatMode();
+              ref.read(playerProvider.notifier).toggleRepeat();
             },
           ),
         ],
@@ -76,7 +76,7 @@ class PlaybackControls extends ConsumerWidget {
 
   IconData _getRepeatIcon(RepeatMode mode) {
     switch (mode) {
-      case RepeatMode.off:
+      case RepeatMode.none:
         return Icons.repeat;
       case RepeatMode.one:
         return Icons.repeat_one;
