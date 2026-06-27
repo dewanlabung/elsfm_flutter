@@ -4,7 +4,9 @@ import '../providers/player_provider.dart';
 
 /// Queue view widget showing upcoming songs
 class QueueView extends ConsumerWidget {
-  const QueueView({super.key});
+  final ScrollController? scrollController;
+
+  const QueueView({super.key, this.scrollController});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,12 +22,14 @@ class QueueView extends ConsumerWidget {
     }
 
     return ListView.builder(
+      controller: scrollController,
       itemCount: playerState.queue.length,
       itemBuilder: (context, index) {
         final track = playerState.queue[index];
         final isCurrentTrack = playerState.currentTrack?.id == track.id;
 
         return ListTile(
+          key: ValueKey(track.id),
           leading: isCurrentTrack
               ? const Icon(Icons.music_note, color: Colors.green)
               : Text(

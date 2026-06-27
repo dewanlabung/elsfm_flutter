@@ -47,12 +47,7 @@ void showQueueBottomSheet(BuildContext context) {
             ),
             // Queue list
             Expanded(
-              child: ListView(
-                controller: scrollController,
-                children: [
-                  SingleChildScrollView(child: QueueView()),
-                ],
-              ),
+              child: QueueView(scrollController: scrollController),
             ),
           ],
         );

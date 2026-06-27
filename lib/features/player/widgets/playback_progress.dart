@@ -26,7 +26,8 @@ class PlaybackProgress extends ConsumerWidget {
               ? playerState.position.inSeconds.toDouble()
               : 0,
           max: playerState.duration.inSeconds.toDouble().clamp(0, double.infinity),
-          onChanged: (value) {
+          onChanged: null,
+          onChangeEnd: (value) {
             ref.read(playerProvider.notifier).seek(
                   Duration(seconds: value.toInt()),
                 );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/player_provider.dart';
-import '../services/player_service.dart';
 import '../widgets/playback_progress.dart';
 import '../widgets/playback_controls.dart';
 
@@ -21,7 +21,7 @@ class NowPlayingScreen extends ConsumerWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.expand_more),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
@@ -40,49 +40,51 @@ class NowPlayingScreen extends ConsumerWidget {
       ),
       body: currentTrack == null
           ? const Center(child: Text('No track loaded'))
-          : Column(
-              children: [
-                // Album art
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.music_note, size: 100),
+          : SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  // Album art
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.music_note, size: 100),
+                    ),
                   ),
-                ),
-                // Track info
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          currentTrack.name,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                          textAlign: TextAlign.center,
+                  // Track info
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            currentTrack.name,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                            textAlign: TextAlign.center,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currentTrack.artists.map((a) => a.name).join(', '),
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          currentTrack.artists.map((a) => a.name).join(', '),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                // Progress bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: PlaybackProgress(),
-                ),
-                // Player controls
-                const PlaybackControls(),
-                const SizedBox(height: 24),
-              ],
+                  // Progress bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: PlaybackProgress(),
+                  ),
+                  // Player controls
+                  const PlaybackControls(),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
     );
   }
-
 }

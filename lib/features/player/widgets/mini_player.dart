@@ -42,7 +42,7 @@ class MiniPlayer extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: const Icon(Icons.music_note, size: 20),
