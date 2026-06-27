@@ -114,5 +114,5 @@ class _DevModeToggleState extends ConsumerState<DevModeToggle> {
 }
 
 class DevAuthHelperConstants {
-  static const testEmail = 'live.elsfm@gmail.com';
+  static const testEmail = 'test.elsfm@gmail.com';
 }

@@ -15,6 +15,11 @@ final dioProvider = FutureProvider<Dio>((ref) async {
       sendTimeout: Duration(seconds: AppConfig.requestTimeoutSeconds),
       contentType: 'application/json',
       validateStatus: (status) => status != null && status < 500,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
     ),
   );
 
