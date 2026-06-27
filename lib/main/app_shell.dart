@@ -61,7 +61,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             label: 'Library',
           ),
           NavigationDestination(
-            icon: Icon(Icons.recommendation),
+            icon: Icon(Icons.star_border),
             label: 'For You',
           ),
         ],

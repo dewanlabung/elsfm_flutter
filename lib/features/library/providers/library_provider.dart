@@ -6,7 +6,7 @@ import 'package:elsfm/data/models/track.dart';
 
 /// Library repository provider
 final libraryRepositoryProvider = Provider<UserLibraryRepository>((ref) {
-  final dio = ref.watch(httpClientProvider);
+  final dio = ref.watch(dioProvider).requireValue;
   return UserLibraryRepository(dio: dio);
 });
 

@@ -3,6 +3,7 @@ import 'package:elsfm/data/repositories/search_repository.dart';
 import 'package:elsfm/data/models/track.dart';
 import 'package:elsfm/data/models/artist.dart';
 import 'package:elsfm/data/models/playlist.dart';
+import '../models/search_state.dart';
 
 /// Search service using SearchRepository with debouncing
 class SearchService {
@@ -84,61 +85,6 @@ class SearchService {
       throw SearchException('Trending fetch failed: $e');
     }
   }
-}
-
-/// Search results container
-class SearchResults {
-  final List<Track> songs;
-  final List<Artist> artists;
-  final List<Playlist> playlists;
-  final int page;
-  final int total;
-  final String query;
-
-  SearchResults({
-    required this.songs,
-    required this.artists,
-    required this.playlists,
-    required this.page,
-    required this.total,
-    required this.query,
-  });
-
-  factory SearchResults.empty() => SearchResults(
-    songs: [],
-    artists: [],
-    playlists: [],
-    page: 1,
-    total: 0,
-    query: '',
-  );
-
-  bool get isEmpty => songs.isEmpty && artists.isEmpty && playlists.isEmpty;
-
-  bool get isNotEmpty => !isEmpty;
-
-  int get totalResults => songs.length + artists.length + playlists.length;
-
-  bool get hasNextPage => page * 20 < total;
-}
-
-/// Trending results container
-class TrendingResults {
-  final List<Track> songs;
-  final List<Artist> artists;
-  final String type;
-  final String period;
-
-  TrendingResults({
-    required this.songs,
-    required this.artists,
-    required this.type,
-    required this.period,
-  });
-
-  bool get isEmpty => songs.isEmpty && artists.isEmpty;
-
-  bool get isNotEmpty => !isEmpty;
 }
 
 /// Search exception

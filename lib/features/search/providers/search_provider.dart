@@ -6,7 +6,7 @@ import '../models/search_state.dart';
 
 /// Search repository provider
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  final dio = ref.watch(httpClientProvider);
+  final dio = ref.watch(dioProvider).requireValue;
   return SearchRepository(dio: dio);
 });
 

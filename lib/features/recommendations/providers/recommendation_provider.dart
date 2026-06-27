@@ -7,7 +7,7 @@ import 'package:elsfm/data/models/track.dart';
 
 /// Recommendation repository provider
 final recommendationRepositoryProvider = Provider<RecommendationRepository>((ref) {
-  final dio = ref.watch(httpClientProvider);
+  final dio = ref.watch(dioProvider).requireValue;
   return RecommendationRepository(dio: dio);
 });
 
