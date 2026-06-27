@@ -55,9 +55,14 @@ class AuthService {
           if (kDebugMode) debugPrint('✓ Token set: Bearer ${token.substring(0, 10)}...');
         }
 
-        // After successful login (session cookie is now set), get current user
-        // This handles both token-based and cookie-based Sanctum auth
-        final user = await getCurrentUser();
+        // Extract user from the bootstrap response
+        // The login endpoint returns user data in the response
+        final userJson = data['user'] as Map<String, dynamic>?;
+        if (userJson == null) {
+          throw Exception('Login failed: No user data in response');
+        }
+
+        final user = User.fromJson(userJson);
         if (kDebugMode) {
           debugPrint('✓ Login successful: user=${user.email}');
         }
