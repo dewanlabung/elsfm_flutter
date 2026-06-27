@@ -1,7 +1,11 @@
 import 'package:elsfm/data/models/track.dart';
+import 'audio_streaming_service.dart';
 
-/// Audio player service managing playback state
+/// Audio player service managing playback state and audio streaming
 class PlayerService {
+  final AudioStreamingService audioStreamingService;
+  String _preferredQuality = '320'; // Default to high quality
+
   // Player state
   Track? _currentTrack;
   List<Track> _queue = [];
@@ -12,6 +16,8 @@ class PlayerService {
   double _playbackSpeed = 1.0;
   bool _isShuffled = false;
   RepeatMode _repeatMode = RepeatMode.off;
+
+  PlayerService({required this.audioStreamingService});
 
   // Getters
   Track? get currentTrack => _currentTrack;
@@ -25,15 +31,30 @@ class PlayerService {
   RepeatMode get repeatMode => _repeatMode;
 
   /// Load and play a track
-  Future<void> loadTrack(Track track) async {
+  Future<void> loadTrack(Track track, {bool autoPlay = true}) async {
     try {
       _currentTrack = track;
-      _isPlaying = true;
       _position = Duration.zero;
       _duration = Duration(seconds: track.duration.inSeconds);
+
+      // Load audio stream
+      await audioStreamingService.loadTrack(
+        track: track,
+        quality: _preferredQuality,
+      );
+
+      // Auto-play if requested
+      if (autoPlay) {
+        await play();
+      }
     } catch (e) {
       throw PlayerException('Failed to load track: $e');
     }
+  }
+
+  /// Set preferred audio quality
+  void setPreferredQuality(String quality) {
+    _preferredQuality = quality;
   }
 
   /// Load a queue and start playing
@@ -52,6 +73,7 @@ class PlayerService {
   /// Play/pause
   Future<void> play() async {
     try {
+      await audioStreamingService.play();
       _isPlaying = true;
     } catch (e) {
       throw PlayerException('Failed to play: $e');
@@ -60,6 +82,7 @@ class PlayerService {
 
   Future<void> pause() async {
     try {
+      await audioStreamingService.pause();
       _isPlaying = false;
     } catch (e) {
       throw PlayerException('Failed to pause: $e');
@@ -101,7 +124,9 @@ class PlayerService {
   /// Seek
   Future<void> seek(Duration position) async {
     try {
-      _position = position.clamp(Duration.zero, _duration);
+      final clampedPosition = position.clamp(Duration.zero, _duration);
+      await audioStreamingService.seek(clampedPosition);
+      _position = clampedPosition;
     } catch (e) {
       throw PlayerException('Failed to seek: $e');
     }
@@ -110,7 +135,9 @@ class PlayerService {
   /// Playback speed
   Future<void> setPlaybackSpeed(double speed) async {
     try {
-      _playbackSpeed = speed.clamp(0.5, 2.0);
+      final clampedSpeed = speed.clamp(0.5, 2.0);
+      await audioStreamingService.setSpeed(clampedSpeed);
+      _playbackSpeed = clampedSpeed;
     } catch (e) {
       throw PlayerException('Failed to set playback speed: $e');
     }
@@ -150,6 +177,25 @@ class PlayerService {
       return _queue.sublist(_currentIndex);
     }
     return [];
+  }
+
+  /// Get audio player position stream for UI updates
+  Stream<Duration> getPositionStream() {
+    return audioStreamingService.getPositionStream();
+  }
+
+  /// Get audio player state stream
+  Stream<Duration> getPlayerStateStream() {
+    return audioStreamingService.getPlayerStateStream();
+  }
+
+  /// Cleanup resources
+  Future<void> dispose() async {
+    try {
+      await audioStreamingService.dispose();
+    } catch (e) {
+      throw PlayerException('Failed to cleanup: $e');
+    }
   }
 }
 
