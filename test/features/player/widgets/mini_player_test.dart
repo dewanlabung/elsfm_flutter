@@ -16,7 +16,7 @@ void main() {
         artists: [Artist(id: 1, name: 'Test Artist', views: 0)],
         album: 'Test Album',
         duration: Duration(minutes: 3),
-        releaseDate: DateTime.now(),
+        createdAt: DateTime.now(),
         genre: 'Test',
       );
     });
