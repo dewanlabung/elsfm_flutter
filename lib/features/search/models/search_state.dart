@@ -54,12 +54,24 @@ class SearchResults {
   final List<Track> songs;
   final List<Artist> artists;
   final List<Playlist> playlists;
+  final int page;
+  final int total;
+  final String query;
 
   SearchResults({
     required this.songs,
     required this.artists,
     required this.playlists,
+    this.page = 1,
+    this.total = 0,
+    this.query = '',
   });
+
+  factory SearchResults.empty() => SearchResults(
+    songs: [],
+    artists: [],
+    playlists: [],
+  );
 
   bool get isEmpty => songs.isEmpty && artists.isEmpty && playlists.isEmpty;
 

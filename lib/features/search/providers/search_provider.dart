@@ -30,7 +30,7 @@ class DebouncedSearchNotifier extends AsyncNotifier<SearchState> {
 
   Future<void> search(String query) async {
     if (query.isEmpty) {
-      state = const AsyncValue.data(SearchState.initial());
+      state = AsyncValue.data(SearchState.initial());
       return;
     }
 
@@ -88,7 +88,7 @@ class DebouncedSearchNotifier extends AsyncNotifier<SearchState> {
   }
 
   void clear() {
-    state = const AsyncValue.data(SearchState.initial());
+    state = AsyncValue.data(SearchState.initial());
   }
 }
 

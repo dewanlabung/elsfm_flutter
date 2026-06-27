@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/search_service.dart';
+import '../models/search_state.dart';
 
 /// Trending content display widget
 class TrendingSection extends StatelessWidget {
