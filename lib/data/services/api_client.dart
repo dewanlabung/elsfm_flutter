@@ -14,8 +14,9 @@ class ApiClient {
   ApiClient(this.dio);
 
   // Channels
-  Future<BackendResponse<List<Channel>>> getChannels() async {
-    final response = await dio.get<Map<String, dynamic>>('/channel');
+  Future<BackendResponse<List<Channel>>> getChannels({int? userId}) async {
+    final params = userId != null ? {'userId': userId} : <String, dynamic>{};
+    final response = await dio.get<Map<String, dynamic>>('/channel', queryParameters: params);
     final data = response.data!;
     final channels = (data['data'] as List)
         .map((e) => Channel.fromJson(e as Map<String, dynamic>))
