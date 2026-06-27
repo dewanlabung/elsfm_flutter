@@ -1,184 +1,178 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../data/models/download.dart';
-import '../providers/downloads_provider.dart';
+import '../providers/download_provider.dart';
 
+/// Downloads management screen
 class DownloadsScreen extends ConsumerWidget {
   const DownloadsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final downloadsAsync = ref.watch(downloadsProvider);
+    final downloads = ref.watch(downloadsListProvider);
+    final totalSize = ref.watch(totalDownloadSizeProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Downloads'),
-        elevation: 0,
+        title: const Text('Downloaded Songs'),
+        actions: downloads.isNotEmpty
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep),
+                  onPressed: () => _showClearConfirmation(context, ref),
+                  tooltip: 'Clear all downloads',
+                ),
+              ]
+            : [],
       ),
-      body: downloadsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, st) => Center(child: Text('Error: $err')),
-        data: (downloads) {
-          if (downloads.isEmpty) {
-            return const Center(child: Text('No downloads yet'));
-          }
-
-          final downloading = downloads
-              .where((d) => d.status == DownloadStatus.downloading)
-              .toList();
-          final completed = downloads
-              .where((d) => d.status == DownloadStatus.completed)
-              .toList();
-          final failed = downloads
-              .where((d) => d.status == DownloadStatus.failed)
-              .toList();
-          final pending = downloads
-              .where((d) => d.status == DownloadStatus.pending)
-              .toList();
-
-          return ListView(
-            children: [
-              if (downloading.isNotEmpty) ...[
+      body: downloads.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.download, size: 64),
+                  const SizedBox(height: 16),
+                  const Text('No downloads yet'),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Downloaded songs will appear here',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Downloading (${downloading.length})',
-                    style: Theme.of(context).textTheme.titleMedium,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${downloads.length} songs',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        '${(totalSize / (1024 * 1024)).toStringAsFixed(2)} MB',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
                   ),
                 ),
-                ...downloading.map((d) => _buildDownloadItem(context, ref, d)),
-              ],
-              if (pending.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Queued (${pending.length})',
-                    style: Theme.of(context).textTheme.titleMedium,
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: downloads.length,
+                    itemBuilder: (context, index) {
+                      final download = downloads[index];
+                      return ListTile(
+                        leading: _buildLeading(download),
+                        title: Text(download.title),
+                        subtitle: download.isDownloading
+                            ? LinearProgressIndicator(
+                                value: download.progress / 100,
+                              )
+                            : Text('${download.progress}% downloaded'),
+                        trailing: download.isComplete
+                            ? IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () {
+                                  ref
+                                      .read(downloadsListProvider.notifier)
+                                      .removeDownload(download.trackId);
+                                },
+                              )
+                            : null,
+                      );
+                    },
                   ),
                 ),
-                ...pending.map((d) => _buildDownloadItem(context, ref, d)),
               ],
-              if (failed.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Failed (${failed.length})',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                ...failed.map((d) => _buildDownloadItem(context, ref, d)),
-              ],
-              if (completed.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Downloaded (${completed.length})',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                ...completed.map((d) => _buildDownloadItem(context, ref, d)),
-              ],
-            ],
-          );
-        },
-      ),
+            ),
     );
   }
 
-  Widget _buildDownloadItem(
-    BuildContext context,
-    WidgetRef ref,
-    Download download,
-  ) {
-    final isDownloading = download.status == DownloadStatus.downloading;
-    final isCompleted = download.status == DownloadStatus.completed;
-    final isFailed = download.status == DownloadStatus.failed;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      download.trackName,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (isDownloading)
-                    Text(
-                      '${(download.progress * 100).toStringAsFixed(0)}%',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  if (isFailed)
-                    const Icon(Icons.error, color: Colors.red, size: 20),
-                  if (isCompleted)
-                    const Icon(Icons.check_circle, color: Color(0xFF1DB954), size: 20),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (isDownloading)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: download.progress,
-                    minHeight: 4,
-                    backgroundColor: Colors.grey[800],
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1DB954)),
-                  ),
-                )
-              else if (isFailed)
-                Text(
-                  'Download failed',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.red,
-                      ),
-                )
-              else if (isCompleted)
-                Text(
-                  'Completed on ${_formatDate(download.completedAt)}',
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (isCompleted)
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text('Play'),
-                    ),
-                  TextButton(
-                    onPressed: () => _deleteDownload(context, ref, download),
-                    child: const Text('Delete'),
-                  ),
-                ],
-              ),
-            ],
+  Widget _buildLeading(DownloadStatus download) {
+    if (download.isDownloading) {
+      return SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: CircularProgressIndicator(
+            value: download.progress / 100,
+            strokeWidth: 2,
           ),
         ),
+      );
+    }
+
+    if (download.isComplete) {
+      return Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.green[100],
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Icon(Icons.check, color: Colors.green),
+      );
+    }
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.red[100],
+        borderRadius: BorderRadius.circular(4),
       ),
+      child: const Icon(Icons.error, color: Colors.red),
     );
   }
 
-  void _deleteDownload(
-    BuildContext context,
-    WidgetRef ref,
-    Download download,
-  ) async {
-    final downloadService = await ref.read(downloadServiceProvider.future);
-    await downloadService.deleteDownload(download.id);
+  void _showClearConfirmation(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear All Downloads'),
+        content: const Text('This will delete all downloaded songs. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await ref.read(downloadsListProvider.notifier).clearAllDownloads();
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
   }
+}
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return '';
-    return '${date.month}/${date.day}/${date.year}';
-  }
+class DownloadStatus {
+  final int trackId;
+  final String title;
+  final int progress;
+  final bool isDownloading;
+  final bool isComplete;
+  final int? fileSizeBytes;
+  final DateTime downloadedAt;
+
+  DownloadStatus({
+    required this.trackId,
+    required this.title,
+    required this.progress,
+    required this.isDownloading,
+    this.isComplete = false,
+    this.fileSizeBytes,
+    DateTime? downloadedAt,
+  }) : downloadedAt = downloadedAt ?? DateTime.now();
+
+  bool get isPending => !isComplete && !isDownloading;
+  bool get isFailed => progress < 100 && !isDownloading && !isComplete;
 }
