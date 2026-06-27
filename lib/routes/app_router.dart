@@ -1,3 +1,6 @@
+// DEPRECATED — use lib/main/app_router.dart instead.
+// This file is retained for reference only and is no longer imported by the app.
+
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../features/home/screens/home_screen.dart';

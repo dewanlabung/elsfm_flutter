@@ -4,7 +4,7 @@ import 'data/services/hive_service.dart';
 import 'features/auth/models/auth_state.dart';
 import 'features/auth/providers/auth_notifier.dart';
 import 'features/auth/screens/login_screen.dart';
-import 'routes/app_router.dart';
+import 'main/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,52 +20,47 @@ void main() async {
   );
 }
 
-class ElsfmApp extends StatelessWidget {
+class ElsfmApp extends ConsumerWidget {
   const ElsfmApp({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ELSFM',
-      theme: ThemeData(
+
+  static ThemeData _buildTheme(Brightness brightness) => ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1DB954),
-          brightness: Brightness.dark,
+          brightness: brightness,
         ),
-      ),
-      home: const ElsfmHome(),
-    );
-  }
-}
-
-class ElsfmHome extends ConsumerWidget {
-  const ElsfmHome({super.key});
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
 
+    // Show loading spinner while restoring session
     if (authState.state == AuthState.authenticating) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (authState.state == AuthState.authenticated) {
-      return MaterialApp.router(
+      return MaterialApp(
         title: 'ELSFM',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF1DB954),
-            brightness: Brightness.dark,
-          ),
+        theme: _buildTheme(Brightness.dark),
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
         ),
-        routerConfig: appRouter,
       );
     }
 
-    return const LoginScreen();
+    // Show login screen for unauthenticated / error states
+    if (authState.state != AuthState.authenticated) {
+      return MaterialApp(
+        title: 'ELSFM',
+        theme: _buildTheme(Brightness.dark),
+        home: const LoginScreen(),
+      );
+    }
+
+    // Authenticated: use Phase 3 router with ShellRoute, bottom nav, mini-player
+    return MaterialApp.router(
+      title: 'ELSFM',
+      theme: _buildTheme(Brightness.dark),
+      routerConfig: appRouter,
+    );
   }
 }
