@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../data/providers/http_client_provider.dart';
@@ -29,6 +30,16 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
     try {
       state = state.copyWith(state: AuthState.authenticating);
       final user = await authService.loginWithEmail(email, password);
+      state = AuthStateData.authenticated(user);
+    } catch (e) {
+      state = AuthStateData.error(e.toString());
+    }
+  }
+
+  Future<void> loginWithGoogle(BuildContext context) async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final user = await authService.getCurrentUser();
       state = AuthStateData.authenticated(user);
     } catch (e) {
       state = AuthStateData.error(e.toString());

@@ -43,6 +43,7 @@ dependencies:
   flutter_svg: ^2.0.0
   permission_handler: ^11.4.0
   connectivity_plus: ^5.0.1
+  webview_flutter: ^4.8.0
 
   # Logging
   logger: ^2.0.0

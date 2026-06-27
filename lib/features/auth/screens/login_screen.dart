@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/auth_state.dart';
 import '../providers/auth_notifier.dart';
+import 'google_oauth_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -33,6 +34,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     ref.read(authNotifierProvider.notifier).loginWithEmail(email, password);
+  }
+
+  void _handleGoogleLogin() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        child: GoogleOAuthScreen(
+          onSuccess: () {
+            ref.read(authNotifierProvider.notifier).loginWithGoogle(context);
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -99,6 +114,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : const Text('Login with Email'),
                 ),
               ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isLoading ? null : () => _handleGoogleLogin(),
+                  icon: const Icon(Icons.login),
+                  label: const Text('Sign in with Google'),
+                ),
+              ),
               if (authState.errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
@@ -108,11 +132,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              const SizedBox(height: 16),
-              const Text(
-                'Google OAuth coming in Task 5',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
             ],
           ),
         ),
