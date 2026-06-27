@@ -22,10 +22,21 @@ class _AppShellState extends ConsumerState<AppShell> {
   int _selectedIndex = 0;
 
   static const List<String> _routes = [
+    '/home',
     '/search',
     '/library',
     '/recommendations',
   ];
+
+  @override
+  void didUpdateWidget(AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final path = widget.routerState.uri.path;
+    final idx = _routes.indexWhere((r) => path.startsWith(r));
+    if (idx >= 0 && idx != _selectedIndex) {
+      setState(() => _selectedIndex = idx);
+    }
+  }
 
   void _selectTab(int index) {
     if (_selectedIndex == index) return;
@@ -39,12 +50,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       body: Column(
         children: [
           Expanded(child: widget.child),
-          // Mini player at bottom
           MiniPlayer(
-            onExpanded: () {
-              // Navigate to full player screen
-              context.push('/now-playing');
-            },
+            onExpanded: () => context.push('/now-playing'),
           ),
         ],
       ),
@@ -52,6 +59,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: _selectTab,
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
           NavigationDestination(
             icon: Icon(Icons.search),
             label: 'Search',
@@ -62,6 +74,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
           NavigationDestination(
             icon: Icon(Icons.star_border),
+            selectedIcon: Icon(Icons.star),
             label: 'For You',
           ),
         ],

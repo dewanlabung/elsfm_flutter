@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ELSFM Flutter (USB Device)",
+      "runtimeExecutable": "/Users/siku/develop/flutter/bin/flutter",
+      "runtimeArgs": ["run", "-d", "RF9XA017X8P"],
+      "port": null
+    },
+    {
+      "name": "ELSFM Flutter (Android Emulator)",
+      "runtimeExecutable": "/Users/siku/develop/flutter/bin/flutter",
+      "runtimeArgs": ["run", "-d", "emulator-5554"],
+      "port": null
+    },
+    {
+      "name": "ELSFM Flutter (Chrome Web)",
+      "runtimeExecutable": "/Users/siku/develop/flutter/bin/flutter",
+      "runtimeArgs": ["run", "-d", "chrome", "--web-port", "8080"],
+      "port": 8080
+    },
+    {
+      "name": "ELSFM Flutter Tests",
+      "runtimeExecutable": "/Users/siku/develop/flutter/bin/flutter",
+      "runtimeArgs": ["test"],
+      "port": null
+    }
+  ]
+}
