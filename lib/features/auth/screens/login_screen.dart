@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/auth_state.dart';
 import '../providers/auth_notifier.dart';
 import '../widgets/dev_mode_toggle.dart';
+import '../widgets/email_field.dart';
+import '../widgets/password_field.dart';
+import '../widgets/credential_saver.dart';
 import 'google_oauth_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -15,6 +19,25 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedEmail();
+  }
+
+  Future<void> _loadSavedEmail() async {
+    final storage = const FlutterSecureStorage();
+    final saver = CredentialSaver(storage);
+    final savedEmail = await saver.getSavedEmail();
+    if (savedEmail != null && mounted) {
+      setState(() {
+        emailController.text = savedEmail;
+        _rememberMe = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -32,6 +55,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         const SnackBar(content: Text('Email and password required')),
       );
       return;
+    }
+
+    // Save credentials if "Remember me" is checked
+    if (_rememberMe) {
+      final storage = const FlutterSecureStorage();
+      final saver = CredentialSaver(storage);
+      saver.saveEmail(email);
     }
 
     ref.read(authNotifierProvider.notifier).loginWithEmail(email, password);
@@ -78,27 +108,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 32),
-                    TextField(
+                    EmailField(
                       controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
                       enabled: !isLoading,
                     ),
                     const SizedBox(height: 16),
-                    TextField(
+                    PasswordField(
                       controller: passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      obscureText: true,
                       enabled: !isLoading,
+                    ),
+                    const SizedBox(height: 12),
+                    RememberMeCheckbox(
+                      initialValue: _rememberMe,
+                      onChanged: (value) {
+                        setState(() => _rememberMe = value);
+                      },
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
