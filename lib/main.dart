@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'routes/app_router.dart';
 
 void main() {
   runApp(
@@ -14,7 +15,7 @@ class ElsfmApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'ELSFM',
       theme: ThemeData(
         useMaterial3: true,
@@ -23,11 +24,7 @@ class ElsfmApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text('ELSFM — Loading...'),
-        ),
-      ),
+      routerConfig: appRouter,
     );
   }
 }
