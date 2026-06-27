@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'data/services/hive_service.dart';
 import 'features/auth/models/auth_state.dart';
 import 'features/auth/providers/auth_notifier.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'routes/app_router.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await HiveService.init();
+
   runApp(
     const ProviderScope(
       child: ElsfmApp(),
