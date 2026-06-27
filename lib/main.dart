@@ -10,7 +10,7 @@ void main() {
 }
 
 class ElsfmApp extends StatelessWidget {
-  const ElsfmApp({Key? key}) : super(key: key);
+  const ElsfmApp({super.key});
 
   @override
   Widget build(BuildContext context) {
