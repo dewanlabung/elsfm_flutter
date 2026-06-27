@@ -6,6 +6,7 @@ import '../features/artist/screens/artist_screen.dart';
 import '../features/album/screens/album_screen.dart';
 import '../features/playlist/screens/playlist_screen.dart';
 import '../features/library/screens/library_screen.dart';
+import '../features/downloads/screens/downloads_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -42,6 +43,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/library',
       builder: (context, state) => const LibraryScreen(),
+    ),
+    GoRoute(
+      path: '/downloads',
+      builder: (context, state) => const DownloadsScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

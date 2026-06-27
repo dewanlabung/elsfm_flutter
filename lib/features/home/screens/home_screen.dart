@@ -16,6 +16,11 @@ class HomeScreen extends ConsumerWidget {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: () => context.go('/downloads'),
+            tooltip: 'Downloads',
+          ),
+          IconButton(
             icon: const Icon(Icons.favorite),
             onPressed: () => context.go('/library'),
             tooltip: 'Library',
