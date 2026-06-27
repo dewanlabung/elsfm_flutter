@@ -4,6 +4,7 @@ import '../features/home/screens/home_screen.dart';
 import '../features/search/screens/search_screen.dart';
 import '../features/artist/screens/artist_screen.dart';
 import '../features/album/screens/album_screen.dart';
+import '../features/playlist/screens/playlist_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -28,6 +29,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = int.parse(state.pathParameters['id'] ?? '0');
         return AlbumScreen(albumId: id);
+      },
+    ),
+    GoRoute(
+      path: '/playlist/:id',
+      builder: (context, state) {
+        final id = int.parse(state.pathParameters['id'] ?? '0');
+        return PlaylistScreen(playlistId: id);
       },
     ),
   ],
