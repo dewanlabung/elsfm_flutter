@@ -15,7 +15,7 @@ class RecommendationRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/recommendations/$type',
+        '/recommendations/$type',
       );
 
       return Recommendation.fromJson(response.data as Map<String, dynamic>);
@@ -28,7 +28,7 @@ class RecommendationRepository {
   /// Authorization: User must be authenticated
   Future<Recommendation> getReleaseRadar() async {
     try {
-      final response = await dio.get('/api/v1/recommendations/release_radar');
+      final response = await dio.get('/recommendations/release_radar');
       return Recommendation.fromJson(response.data as Map<String, dynamic>);
     } on DioException {
       rethrow;
@@ -39,7 +39,7 @@ class RecommendationRepository {
   /// Authorization: User must be authenticated
   Future<Recommendation> getDiscoverWeekly() async {
     try {
-      final response = await dio.get('/api/v1/recommendations/discover_weekly');
+      final response = await dio.get('/recommendations/discover_weekly');
       return Recommendation.fromJson(response.data as Map<String, dynamic>);
     } on DioException {
       rethrow;
@@ -50,7 +50,7 @@ class RecommendationRepository {
   /// Authorization: User must be authenticated
   Future<Recommendation> getTimeCapsule() async {
     try {
-      final response = await dio.get('/api/v1/recommendations/time_capsule');
+      final response = await dio.get('/recommendations/time_capsule');
       return Recommendation.fromJson(response.data as Map<String, dynamic>);
     } on DioException {
       rethrow;
@@ -64,7 +64,7 @@ class RecommendationRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/recommendations/top_hits',
+        '/recommendations/top_hits',
         queryParameters: {
           'period': period,
         },
@@ -80,7 +80,7 @@ class RecommendationRepository {
   /// Authorization: None (public)
   Future<List<Recommendation>> getMoodPlaylists() async {
     try {
-      final response = await dio.get('/api/v1/recommendations/moods');
+      final response = await dio.get('/recommendations/moods');
 
       return ((response.data as List?) ?? [])
           .map((e) => Recommendation.fromJson(e as Map<String, dynamic>))
@@ -99,7 +99,7 @@ class RecommendationRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/recommendations/based-on/$trackId',
+        '/recommendations/based-on/$trackId',
         queryParameters: {
           'limit': limit,
         },
@@ -121,7 +121,7 @@ class RecommendationRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/recommendations/based-on',
+        '/recommendations/based-on',
         queryParameters: {
           'track_ids': trackIds.join(','),
           'limit': limit,
@@ -143,7 +143,7 @@ class RecommendationRepository {
   }) async {
     try {
       final response = await dio.post(
-        '/api/v1/recommendations/$type/refresh',
+        '/recommendations/$type/refresh',
       );
 
       return Recommendation.fromJson(response.data as Map<String, dynamic>);
@@ -156,7 +156,7 @@ class RecommendationRepository {
   /// Authorization: None (public)
   Future<List<String>> getAvailableTypes() async {
     try {
-      final response = await dio.get('/api/v1/recommendations/types');
+      final response = await dio.get('/recommendations/types');
 
       return ((response.data as List?) ?? [])
           .map((e) => e.toString())

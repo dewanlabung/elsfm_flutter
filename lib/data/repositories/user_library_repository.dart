@@ -12,7 +12,7 @@ class UserLibraryRepository {
   /// Authorization: User must be authenticated
   Future<UserLibrary> getUserLibrary() async {
     try {
-      final response = await dio.get('/api/v1/library');
+      final response = await dio.get('/library');
       return UserLibrary.fromJson(response.data as Map<String, dynamic>);
     } on DioException {
       rethrow;
@@ -28,7 +28,7 @@ class UserLibraryRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/library/favorites',
+        '/library/favorites',
         queryParameters: {
           'page': page,
           'limit': limit,
@@ -49,7 +49,7 @@ class UserLibraryRepository {
   Future<void> addFavorite(int trackId) async {
     try {
       await dio.post(
-        '/api/v1/library/favorites/$trackId',
+        '/library/favorites/$trackId',
       );
     } on DioException {
       rethrow;
@@ -61,7 +61,7 @@ class UserLibraryRepository {
   Future<void> removeFavorite(int trackId) async {
     try {
       await dio.delete(
-        '/api/v1/library/favorites/$trackId',
+        '/library/favorites/$trackId',
       );
     } on DioException {
       rethrow;
@@ -73,7 +73,7 @@ class UserLibraryRepository {
   Future<bool> isFavorited(int trackId) async {
     try {
       final response = await dio.get(
-        '/api/v1/library/favorites/$trackId/check',
+        '/library/favorites/$trackId/check',
       );
 
       return response.data?['is_favorited'] as bool? ?? false;
@@ -90,7 +90,7 @@ class UserLibraryRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/library/history',
+        '/library/history',
         queryParameters: {
           'page': page,
           'limit': limit,
@@ -113,7 +113,7 @@ class UserLibraryRepository {
   }) async {
     try {
       await dio.post(
-        '/api/v1/library/history/$trackId',
+        '/library/history/$trackId',
         data: {
           if (durationPlayedSeconds != null) 'duration_played_seconds': durationPlayedSeconds,
         },
@@ -127,7 +127,7 @@ class UserLibraryRepository {
   /// Authorization: User must be authenticated
   Future<void> clearHistory() async {
     try {
-      await dio.delete('/api/v1/library/history');
+      await dio.delete('/library/history');
     } on DioException {
       rethrow;
     }
@@ -140,7 +140,7 @@ class UserLibraryRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/library/statistics',
+        '/library/statistics',
         queryParameters: {
           'period': period,
         },
@@ -160,7 +160,7 @@ class UserLibraryRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/library/top-tracks',
+        '/library/top-tracks',
         queryParameters: {
           'period': period,
           'limit': limit,

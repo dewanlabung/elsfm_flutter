@@ -16,7 +16,7 @@ class PlaylistRepository {
   }) async {
     try {
       final response = await dio.post(
-        '/api/v1/playlists',
+        '/playlists',
         data: {
           'name': name,
           'description': description,
@@ -38,7 +38,7 @@ class PlaylistRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/playlists',
+        '/playlists',
         queryParameters: {
           'page': page,
           'limit': limit,
@@ -57,7 +57,7 @@ class PlaylistRepository {
   /// Authorization: User must have access (owner or shared)
   Future<PlaylistV2> getPlaylist(int playlistId) async {
     try {
-      final response = await dio.get('/api/v1/playlists/$playlistId');
+      final response = await dio.get('/playlists/$playlistId');
       return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
     } on DioException {
       rethrow;
@@ -81,7 +81,7 @@ class PlaylistRepository {
       if (isCollaborative != null) data['is_collaborative'] = isCollaborative;
 
       final response = await dio.put(
-        '/api/v1/playlists/$playlistId',
+        '/playlists/$playlistId',
         data: data,
       );
 
@@ -95,7 +95,7 @@ class PlaylistRepository {
   /// Authorization: User must be owner
   Future<void> deletePlaylist(int playlistId) async {
     try {
-      await dio.delete('/api/v1/playlists/$playlistId');
+      await dio.delete('/playlists/$playlistId');
     } on DioException {
       rethrow;
     }
@@ -109,7 +109,7 @@ class PlaylistRepository {
   }) async {
     try {
       final response = await dio.post(
-        '/api/v1/playlists/$playlistId/songs',
+        '/playlists/$playlistId/songs',
         data: {
           'track_id': trackId,
         },
@@ -129,7 +129,7 @@ class PlaylistRepository {
   }) async {
     try {
       final response = await dio.delete(
-        '/api/v1/playlists/$playlistId/songs/$trackId',
+        '/playlists/$playlistId/songs/$trackId',
       );
 
       return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
@@ -147,7 +147,7 @@ class PlaylistRepository {
   }) async {
     try {
       final response = await dio.patch(
-        '/api/v1/playlists/$playlistId/songs/$trackId',
+        '/playlists/$playlistId/songs/$trackId',
         data: {
           'position': newPosition,
         },
@@ -167,7 +167,7 @@ class PlaylistRepository {
   }) async {
     try {
       final response = await dio.post(
-        '/api/v1/playlists/$playlistId/songs/bulk',
+        '/playlists/$playlistId/songs/bulk',
         data: {
           'track_ids': trackIds,
         },

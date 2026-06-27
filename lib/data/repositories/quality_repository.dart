@@ -11,7 +11,7 @@ class QualityRepository {
   /// Authorization: None (public)
   Future<List<QualityOption>> getAvailableQualities() async {
     try {
-      final response = await dio.get('/api/v1/audio/quality');
+      final response = await dio.get('/audio/quality');
 
       return ((response.data as List?) ?? [])
           .map((e) => QualityOption.fromJson(e as Map<String, dynamic>))
@@ -25,7 +25,7 @@ class QualityRepository {
   /// Authorization: User must be authenticated
   Future<QualityOption?> getPreferredQuality() async {
     try {
-      final response = await dio.get('/api/v1/audio/quality/preferred');
+      final response = await dio.get('/audio/quality/preferred');
 
       if (response.data != null) {
         return QualityOption.fromJson(response.data as Map<String, dynamic>);
@@ -43,7 +43,7 @@ class QualityRepository {
   }) async {
     try {
       final response = await dio.post(
-        '/api/v1/audio/quality/preferred',
+        '/audio/quality/preferred',
         data: {
           'quality_id': qualityId,
         },
@@ -68,7 +68,7 @@ class QualityRepository {
       };
 
       final response = await dio.get(
-        '/api/v1/audio/quality/recommended',
+        '/audio/quality/recommended',
         queryParameters: params,
       );
 
@@ -85,7 +85,7 @@ class QualityRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/audio/quality/$qualityId/info',
+        '/audio/quality/$qualityId/info',
       );
 
       return response.data as Map<String, dynamic>;
@@ -101,7 +101,7 @@ class QualityRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/audio/quality/$qualityId/available',
+        '/audio/quality/$qualityId/available',
       );
 
       return response.data?['available'] as bool? ?? false;
@@ -115,7 +115,7 @@ class QualityRepository {
   Future<Map<String, dynamic>> getQualityStatistics() async {
     try {
       final response = await dio.get(
-        '/api/v1/audio/quality/statistics',
+        '/audio/quality/statistics',
       );
 
       return response.data as Map<String, dynamic>;

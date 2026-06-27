@@ -26,7 +26,7 @@ class SearchRepository {
       };
 
       final response = await dio.get(
-        '/api/v1/search',
+        '/search',
         queryParameters: params,
       );
 
@@ -64,7 +64,7 @@ class SearchRepository {
       };
 
       final response = await dio.get(
-        '/api/v1/songs',
+        '/songs',
         queryParameters: params,
       );
 
@@ -84,7 +84,7 @@ class SearchRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/api/v1/trending',
+        '/trending',
         queryParameters: {
           'type': type,
           'period': period,
