@@ -107,9 +107,14 @@ class ApiClient {
     int perPage = 20,
   }) async {
     final response = await dio.get<Map<String, dynamic>>('/playlists',
-        queryParameters: {'page': page, 'per_page': perPage});
+        queryParameters: {'page': page, 'perPage': perPage});
+    final data = response.data!;
+    // Real API wraps in 'pagination' key
+    final inner = data.containsKey('pagination')
+        ? data['pagination'] as Map<String, dynamic>
+        : data;
     return _parsePaginationResponse(
-      response.data!,
+      inner,
       (e) => Playlist.fromJson(e as Map<String, dynamic>),
     );
   }
@@ -180,11 +185,56 @@ class ApiClient {
   }
 
   // Genres
-  Future<List<Genre>> getGenres() async {
-    final response = await dio.get<List<dynamic>>('/genres');
-    return (response.data ?? [])
-        .map((e) => Genre.fromJson(e as Map<String, dynamic>))
+  Future<List<Genre>> getGenres({int perPage = 20}) async {
+    final response = await dio.get<Map<String, dynamic>>(
+      '/genres',
+      queryParameters: {'perPage': perPage},
+    );
+    final data = response.data!;
+    // The API may return a pagination wrapper or a plain list.
+    if (data.containsKey('pagination')) {
+      final items = (data['pagination']['data'] as List? ?? []);
+      return items.map((e) => Genre.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    if (data.containsKey('data')) {
+      return (data['data'] as List? ?? [])
+          .map((e) => Genre.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  // Top tracks
+  Future<PaginationResponse<Track>> getTracks({
+    int page = 1,
+    int perPage = 20,
+    String orderBy = 'plays',
+    String orderDir = 'desc',
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+      '/tracks',
+      queryParameters: {
+        'page': page,
+        'perPage': perPage,
+        'orderBy': orderBy,
+        'orderDir': orderDir,
+      },
+    );
+    final data = response.data!;
+    // API wraps in pagination key
+    final inner = data.containsKey('pagination')
+        ? data['pagination'] as Map<String, dynamic>
+        : data;
+    final items = (inner['data'] as List? ?? [])
+        .map((e) => Track.fromJson(e as Map<String, dynamic>))
         .toList();
+    return PaginationResponse(
+      data: items,
+      currentPage: inner['current_page'] as int? ?? 1,
+      lastPage: inner['last_page'] as int? ?? 1,
+      total: inner['total'] as int? ?? 0,
+      perPage: inner['per_page'] as int? ?? perPage,
+    );
   }
 
   PaginationResponse<T> _parsePaginationResponse<T>(
