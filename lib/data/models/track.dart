@@ -23,19 +23,22 @@ class Track {
   });
 
   factory Track.fromJson(Map<String, dynamic> json) {
+    // BeMusic stores duration in milliseconds (e.g. 348000 = 5m48s).
+    final durationMs = (json['duration'] as num?)?.toInt() ?? 0;
+    // `src` / `url` is not returned in list responses; it must be fetched
+    // from the track detail endpoint when playback is requested.
+    final src = json['src'] as String? ?? json['url'] as String? ?? '';
     return Track(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
-      duration: Duration(
-        seconds: (json['duration'] as num?)?.toInt() ?? 0,
-      ),
-      src: json['src'] as String? ?? '',
+      duration: Duration(milliseconds: durationMs),
+      src: src,
       album: json['album'] != null ? Album.fromJson(json['album'] as Map<String, dynamic>) : null,
       artists: (json['artists'] as List<dynamic>?)
               ?.map((e) => Artist.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      views: (json['views'] as num?)?.toInt() ?? 0,
+      views: int.tryParse(json['views']?.toString() ?? '') ?? 0,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
     );
   }

@@ -18,11 +18,19 @@ class Album {
   });
 
   factory Album.fromJson(Map<String, dynamic> json) {
+    // API returns `release_date` as an ISO-8601 datetime string, not `release_year`.
+    int? releaseYear;
+    final releaseDateRaw = json['release_date'] as String?;
+    if (releaseDateRaw != null) {
+      releaseYear = DateTime.tryParse(releaseDateRaw)?.year;
+    } else {
+      releaseYear = (json['release_year'] as num?)?.toInt();
+    }
     return Album(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       image: json['image'] as String?,
-      releaseYear: json['release_year'] as int?,
+      releaseYear: releaseYear,
       artists: (json['artists'] as List<dynamic>?)
               ?.map((e) => Artist.fromJson(e as Map<String, dynamic>))
               .toList() ??
