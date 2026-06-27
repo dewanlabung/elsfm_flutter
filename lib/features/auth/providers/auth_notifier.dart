@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../data/providers/http_client_provider.dart';
 import '../../../data/services/auth_service.dart';
 import '../models/auth_state.dart';
+import '../services/dev_auth_helper.dart';
 
 const _tokenKey = 'auth_token';
 
@@ -24,9 +25,15 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
       final savedToken = await secureStorage.read(key: _tokenKey);
       if (savedToken != null) {
         authService.setToken(savedToken);
+        final user = await authService.getCurrentUser();
+        state = AuthStateData.authenticated(user);
+      } else {
+        // Try dev-mode auto-login if no saved token
+        final devAuth = DevAuthHelper(secureStorage);
+        await devAuth.autoLogin(authService);
+        final user = await authService.getCurrentUser();
+        state = AuthStateData.authenticated(user);
       }
-      final user = await authService.getCurrentUser();
-      state = AuthStateData.authenticated(user);
     } catch (e) {
       await secureStorage.delete(key: _tokenKey);
       authService.clearToken();
