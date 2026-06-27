@@ -37,10 +37,10 @@ class AuthService {
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
         // ELSFM API returns token as 'accessToken' or 'access_token'
-        final token = data['accessToken'] ??
+        final token = (data['accessToken'] ??
                       data['access_token'] ??
                       data['plain_text_token'] ??
-                      data['token'] as String?;
+                      data['token']) as String?;
 
         final userJson = (data['user'] ??
             data['data'] ??
