@@ -6,6 +6,64 @@ part of 'download.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
+class DownloadAdapter extends TypeAdapter<Download> {
+  @override
+  final int typeId = 0;
+
+  @override
+  Download read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return Download(
+      id: fields[0] as int,
+      trackId: fields[1] as int,
+      trackName: fields[2] as String,
+      downloadUrl: fields[3] as String,
+      status: fields[4] as DownloadStatus,
+      progress: fields[5] as double,
+      fileSizeBytes: fields[6] as int?,
+      createdAt: fields[7] as DateTime,
+      completedAt: fields[8] as DateTime?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, Download obj) {
+    writer
+      ..writeByte(9)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.trackId)
+      ..writeByte(2)
+      ..write(obj.trackName)
+      ..writeByte(3)
+      ..write(obj.downloadUrl)
+      ..writeByte(4)
+      ..write(obj.status)
+      ..writeByte(5)
+      ..write(obj.progress)
+      ..writeByte(6)
+      ..write(obj.fileSizeBytes)
+      ..writeByte(7)
+      ..write(obj.createdAt)
+      ..writeByte(8)
+      ..write(obj.completedAt);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DownloadAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
 class DownloadStatusAdapter extends TypeAdapter<DownloadStatus> {
   @override
   final int typeId = 1;
@@ -51,64 +109,6 @@ class DownloadStatusAdapter extends TypeAdapter<DownloadStatus> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is DownloadStatusAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
-
-class DownloadAdapter extends TypeAdapter<Download> {
-  @override
-  final int typeId = 0;
-
-  @override
-  Download read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return Download(
-      id: fields[0] as int,
-      trackId: fields[1] as int,
-      trackName: fields[2] as String,
-      downloadUrl: fields[3] as String,
-      status: fields[4] as DownloadStatus? ?? DownloadStatus.pending,
-      progress: fields[5] as double? ?? 0.0,
-      fileSizeBytes: fields[6] as int?,
-      createdAt: fields[7] as DateTime,
-      completedAt: fields[8] as DateTime?,
-    );
-  }
-
-  @override
-  void write(BinaryWriter writer, Download obj) {
-    writer
-      ..writeByte(9)
-      ..writeByte(0)
-      ..write(obj.id)
-      ..writeByte(1)
-      ..write(obj.trackId)
-      ..writeByte(2)
-      ..write(obj.trackName)
-      ..writeByte(3)
-      ..write(obj.downloadUrl)
-      ..writeByte(4)
-      ..write(obj.status)
-      ..writeByte(5)
-      ..write(obj.progress)
-      ..writeByte(6)
-      ..write(obj.fileSizeBytes)
-      ..writeByte(7)
-      ..write(obj.createdAt)
-      ..writeByte(8)
-      ..write(obj.completedAt);
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is DownloadAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

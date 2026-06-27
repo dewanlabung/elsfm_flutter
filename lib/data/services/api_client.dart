@@ -1,4 +1,3 @@
-import 'package:retrofit/retrofit.dart';
 import 'package:dio/dio.dart';
 import '../models/backend_response.dart';
 import '../models/track.dart';
@@ -9,104 +8,197 @@ import '../models/channel.dart';
 import '../models/genre.dart';
 import '../models/user.dart';
 
-part 'api_client.g.dart';
+class ApiClient {
+  final Dio dio;
 
-@RestApi(baseUrl: 'https://www.elsfm.com/api/v1')
-abstract class ApiClient {
-  factory ApiClient(Dio dio, {String baseUrl}) = _ApiClient;
+  ApiClient(this.dio);
 
   // Channels
-  @GET('/channel')
-  Future<BackendResponse<List<Channel>>> getChannels();
+  Future<BackendResponse<List<Channel>>> getChannels() async {
+    final response = await dio.get<Map<String, dynamic>>('/channel');
+    final data = response.data!;
+    final channels = (data['data'] as List)
+        .map((e) => Channel.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return BackendResponse(data: channels);
+  }
 
-  @GET('/channel/{id}')
-  Future<BackendResponse<Map<String, dynamic>>> getChannel(@Path('id') int id);
+  Future<BackendResponse<Map<String, dynamic>>> getChannel(int id) async {
+    final response = await dio.get<Map<String, dynamic>>('/channel/$id');
+    return BackendResponse(data: response.data!);
+  }
 
   // Artists
-  @GET('/artists')
   Future<PaginationResponse<Artist>> getArtists({
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>('/artists',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Artist.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
-  @GET('/artists/{id}')
   Future<Map<String, dynamic>> getArtist(
-    @Path('id') int id, {
-    @Query('loader') String loader = 'artist',
-  });
+    int id, {
+    String loader = 'artist',
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>('/artists/$id',
+        queryParameters: {'loader': loader});
+    return response.data!;
+  }
 
-  @GET('/artists/{id}/tracks')
   Future<PaginationResponse<Track>> getArtistTracks(
-    @Path('id') int id, {
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int id, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>('/artists/$id/tracks',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Track.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
-  @GET('/artists/{id}/albums')
   Future<PaginationResponse<Album>> getArtistAlbums(
-    @Path('id') int id, {
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int id, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>('/artists/$id/albums',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Album.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
   // Albums
-  @GET('/albums')
   Future<PaginationResponse<Album>> getAlbums({
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>('/albums',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Album.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
-  @GET('/albums/{id}')
-  Future<Map<String, dynamic>> getAlbum(@Path('id') int id);
+  Future<Map<String, dynamic>> getAlbum(int id) async {
+    final response = await dio.get<Map<String, dynamic>>('/albums/$id');
+    return response.data!;
+  }
 
   // Tracks
-  @GET('/tracks/{id}')
-  Future<Track> getTrack(@Path('id') int id);
+  Future<Track> getTrack(int id) async {
+    final response = await dio.get<Map<String, dynamic>>('/tracks/$id');
+    return Track.fromJson(response.data!);
+  }
 
   // Playlists
-  @GET('/playlists')
   Future<PaginationResponse<Playlist>> getPlaylists({
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>('/playlists',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Playlist.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
-  @GET('/playlists/{id}')
-  Future<Map<String, dynamic>> getPlaylist(@Path('id') int id);
+  Future<Map<String, dynamic>> getPlaylist(int id) async {
+    final response = await dio.get<Map<String, dynamic>>('/playlists/$id');
+    return response.data!;
+  }
 
   // Search
-  @GET('/search')
   Future<Map<String, dynamic>> search({
-    @Query('q') required String query,
-    @Query('type') String type = 'track,artist,album,playlist',
-    @Query('limit') int limit = 20,
-  });
+    required String query,
+    String type = 'track,artist,album,playlist',
+    int limit = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>('/search',
+        queryParameters: {'q': query, 'type': type, 'limit': limit});
+    return response.data!;
+  }
 
   // User
-  @GET('/user')
-  Future<User> getCurrentUser();
+  Future<User> getCurrentUser() async {
+    final response = await dio.get<Map<String, dynamic>>('/user');
+    final data = response.data!;
+    return User.fromJson((data['user'] ?? data) as Map<String, dynamic>);
+  }
 
-  @GET('/users/{id}/liked-tracks')
   Future<PaginationResponse<Track>> getLikedTracks(
-    @Path('id') int userId, {
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int userId, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+        '/users/$userId/liked-tracks',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Track.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
-  @GET('/users/{id}/liked-albums')
   Future<PaginationResponse<Album>> getLikedAlbums(
-    @Path('id') int userId, {
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int userId, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+        '/users/$userId/liked-albums',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Album.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
-  @GET('/users/{id}/playlists')
   Future<PaginationResponse<Playlist>> getUserPlaylists(
-    @Path('id') int userId, {
-    @Query('page') int page = 1,
-    @Query('per_page') int perPage = 20,
-  });
+    int userId, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+        '/users/$userId/playlists',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Playlist.fromJson(e as Map<String, dynamic>),
+    );
+  }
 
   // Genres
-  @GET('/genres')
-  Future<List<Genre>> getGenres();
+  Future<List<Genre>> getGenres() async {
+    final response = await dio.get<List<dynamic>>('/genres');
+    return (response.data ?? [])
+        .map((e) => Genre.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  PaginationResponse<T> _parsePaginationResponse<T>(
+    Map<String, dynamic> data,
+    T Function(dynamic) fromJson,
+  ) {
+    final items = ((data['data'] ?? []) as List)
+        .map((e) => fromJson(e))
+        .toList();
+    return PaginationResponse(
+      data: items,
+      currentPage: data['current_page'] as int? ?? 1,
+      lastPage: data['last_page'] as int? ?? 1,
+      total: data['total'] as int? ?? 0,
+      perPage: data['per_page'] as int? ?? 20,
+    );
+  }
 }

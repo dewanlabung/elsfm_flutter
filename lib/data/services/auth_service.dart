@@ -15,43 +15,54 @@ class AuthService {
       final loginData = {
         'email': email,
         'password': password,
-        'device_name': 'Flutter App',
+        'token_name': 'ELSFM Flutter App',
       };
 
       if (kDebugMode) {
         debugPrint('🔐 Login attempt: POST /auth/login');
         debugPrint('   BaseURL: ${dio.options.baseUrl}');
+        debugPrint('   Headers: ${dio.options.headers}');
         debugPrint('   Payload: $loginData');
       }
 
       final response = await dio.post(
         '/auth/login',
         data: loginData,
+        options: Options(
+          contentType: 'application/json',
+        ),
       );
 
       if (kDebugMode) {
         debugPrint('✓ Login response: ${response.statusCode}');
-        debugPrint('  Data: ${response.data}');
+        debugPrint('   Data keys: ${(response.data as Map<String, dynamic>?)?.keys.toList()}');
+        if (response.statusCode != 200) {
+          debugPrint('   Full Response: ${response.toString()}');
+        }
       }
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
-        // ELSFM API returns token as 'accessToken' or 'access_token'
+
+        // Try to extract token from response (some endpoints return it)
         final token = (data['accessToken'] ??
                       data['access_token'] ??
                       data['plain_text_token'] ??
                       data['token']) as String?;
-
-        final userJson = (data['user'] ??
-            data['data'] ??
-            data['bootstrapData']?['user']) as Map<String, dynamic>;
 
         if (token != null) {
           dio.options.headers['Authorization'] = 'Bearer $token';
           if (kDebugMode) debugPrint('✓ Token set: Bearer ${token.substring(0, 10)}...');
         }
 
-        return (user: User.fromJson(userJson), token: token);
+        // After successful login (session cookie is now set), get current user
+        // This handles both token-based and cookie-based Sanctum auth
+        final user = await getCurrentUser();
+        if (kDebugMode) {
+          debugPrint('✓ Login successful: user=${user.email}');
+        }
+
+        return (user: user, token: token);
       }
 
       final message = (response.data as Map<String, dynamic>?)?['message']

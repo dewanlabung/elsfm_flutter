@@ -2,7 +2,17 @@ import 'package:hive/hive.dart';
 
 part 'download.g.dart';
 
-enum DownloadStatus { pending, downloading, completed, failed }
+@HiveType(typeId: 1)
+enum DownloadStatus {
+  @HiveField(0)
+  pending,
+  @HiveField(1)
+  downloading,
+  @HiveField(2)
+  completed,
+  @HiveField(3)
+  failed,
+}
 
 @HiveType(typeId: 0)
 class Download {
