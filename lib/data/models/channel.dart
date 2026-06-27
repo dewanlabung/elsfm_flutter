@@ -1,3 +1,5 @@
+import 'image_helper.dart';
+
 class Channel {
   final int id;
   final String name;
@@ -18,7 +20,7 @@ class Channel {
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       description: json['description'] as String?,
-      image: json['image'] as String?,
+      image: resolveImageUrl(json['image'] as String?),
       contentType: json['content_type'] as String? ?? '',
     );
   }

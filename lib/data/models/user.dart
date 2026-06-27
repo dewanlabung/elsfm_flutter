@@ -1,3 +1,5 @@
+import 'image_helper.dart';
+
 class User {
   final int id;
   final String name;
@@ -18,7 +20,7 @@ class User {
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      avatar: json['avatar'] as String?,
+      avatar: resolveImageUrl(json['avatar'] as String?),
       emailVerified: json['email_verified_at'] != null,
     );
   }

@@ -20,7 +20,7 @@ class Genre {
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       displayName: json['display_name'] as String?,
-      image: json['image'] as String?,
+      image: resolveImageUrl(json['image'] as String?),
     );
   }
 
