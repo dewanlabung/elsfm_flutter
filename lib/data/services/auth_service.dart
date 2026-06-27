@@ -36,16 +36,19 @@ class AuthService {
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
-        final token = data['plain_text_token'] ??
-                      data['token'] ??
-                      data['access_token'] as String?;
+        // ELSFM API returns token as 'accessToken' or 'access_token'
+        final token = data['accessToken'] ??
+                      data['access_token'] ??
+                      data['plain_text_token'] ??
+                      data['token'] as String?;
 
-        final userJson = (data['bootstrapData']?['user'] ??
-            data['user'] ??
-            data['data']) as Map<String, dynamic>;
+        final userJson = (data['user'] ??
+            data['data'] ??
+            data['bootstrapData']?['user']) as Map<String, dynamic>;
 
         if (token != null) {
           dio.options.headers['Authorization'] = 'Bearer $token';
+          if (kDebugMode) debugPrint('✓ Token set: Bearer ${token.substring(0, 10)}...');
         }
 
         return (user: User.fromJson(userJson), token: token);
