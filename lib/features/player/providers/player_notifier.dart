@@ -3,6 +3,8 @@ import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
 import '../../../data/models/track.dart';
 import '../../../data/services/player_service.dart';
+import '../../auth/providers/auth_notifier.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   final PlayerService playerService;
@@ -142,9 +144,29 @@ final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
 final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.PlayerState>((ref) {
   final playerServiceAsync = ref.watch(playerServiceProvider);
 
+  // Get the auth token and set it on the player service
+  _setAuthToken(ref);
+
   return playerServiceAsync.when(
     data: (playerService) => PlayerNotifier(playerService),
     loading: () => PlayerNotifier(PlayerService()),
     error: (err, st) => PlayerNotifier(PlayerService()),
   );
 });
+
+/// Helper to set auth token on player service
+Future<void> _setAuthToken(WidgetRef ref) async {
+  try {
+    final storage = const FlutterSecureStorage();
+    final token = await storage.read(key: 'auth_token');
+
+    final playerServiceAsync = ref.read(playerServiceProvider);
+    playerServiceAsync.whenData((playerService) {
+      if (token != null) {
+        playerService.setAuthToken(token);
+      }
+    });
+  } catch (_) {
+    // Silently fail if token retrieval fails
+  }
+}

@@ -128,8 +128,8 @@ class _BiometricToggleTile extends ConsumerStatefulWidget {
 class _BiometricToggleTileState extends ConsumerState<_BiometricToggleTile> {
   @override
   Widget build(BuildContext context) {
-    final canUseBiometrics = ref.watch(canUseBiometricsProvider);
-    final isBiometricEnabled = ref.watch(isBiometricEnabledProvider);
+    final canUseBiometrics = ref.watch(biometricSupportProvider);
+    final isBiometricEnabled = ref.watch(biometricEnabledProvider);
 
     return canUseBiometrics.when(
       loading: () => const SizedBox.shrink(),
@@ -178,7 +178,7 @@ class _BiometricToggleTileState extends ConsumerState<_BiometricToggleTile> {
                         .read(authNotifierProvider.notifier)
                         .disableBiometricLogin();
                     // Refresh the provider
-                    ref.invalidate(isBiometricEnabledProvider);
+                    ref.invalidate(biometricEnabledProvider);
                   }
                 },
               ),
