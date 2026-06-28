@@ -150,12 +150,15 @@ final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
   return playerService;
 });
 
+// Single shared stub used for loading/error states — never plays audio,
+// never leaks unauthenticated requests.
+final _stubService = PlayerService();
+
 final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.PlayerState>((ref) {
   final playerServiceAsync = ref.watch(playerServiceProvider);
-
   return playerServiceAsync.when(
     data: (playerService) => PlayerNotifier(playerService),
-    loading: () => PlayerNotifier(PlayerService()),
-    error: (err, st) => PlayerNotifier(PlayerService()),
+    loading: () => PlayerNotifier(_stubService),
+    error: (_, __) => PlayerNotifier(_stubService),
   );
 });

@@ -12,6 +12,8 @@ class MiniPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playerState = ref.watch(playerProvider);
     final currentTrack = playerState.currentTrack;
+    // Controls are disabled until the real authenticated PlayerService is ready
+    final playerReady = ref.watch(playerServiceProvider).hasValue;
 
     if (currentTrack == null) {
       return const SizedBox.shrink();
@@ -69,22 +71,21 @@ class MiniPlayer extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  // Play/pause button
+                  // Play/pause — disabled until authenticated PlayerService ready
                   IconButton(
                     icon: Icon(
                       playerState.isPlaying ? Icons.pause : Icons.play_arrow,
                       size: 20,
                     ),
-                    onPressed: () {
-                      ref.read(playerProvider.notifier).togglePlayPause();
-                    },
+                    onPressed: playerReady
+                        ? () => ref.read(playerProvider.notifier).togglePlayPause()
+                        : null,
                   ),
-                  // Next button
                   IconButton(
                     icon: const Icon(Icons.skip_next, size: 20),
-                    onPressed: () {
-                      ref.read(playerProvider.notifier).next();
-                    },
+                    onPressed: playerReady
+                        ? () => ref.read(playerProvider.notifier).next()
+                        : null,
                   ),
                 ],
               ),
