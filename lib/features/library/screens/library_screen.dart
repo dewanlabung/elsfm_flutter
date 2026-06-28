@@ -111,7 +111,7 @@ class LibraryScreen extends ConsumerWidget {
               trailing: const Icon(Icons.play_arrow),
               onTap: () {
                 // Play track via player provider
-                ref.read(playerNotifierProvider.notifier).playTrack(track);
+                ref.read(playerProvider.notifier).playTrack(track);
               },
             );
           },
@@ -169,7 +169,7 @@ class LibraryScreen extends ConsumerWidget {
               trailing: const Icon(Icons.play_arrow),
               onTap: () {
                 // Play track via player provider
-                ref.read(playerNotifierProvider.notifier).playTrack(track);
+                ref.read(playerProvider.notifier).playTrack(track);
               },
             );
           },
