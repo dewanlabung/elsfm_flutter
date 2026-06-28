@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../data/providers/http_client_provider.dart';
 import '../../../data/services/auth_service.dart';
 import '../models/auth_state.dart';
+import '../services/biometric_auth_service.dart';
 import '../services/dev_auth_helper.dart';
 import '../services/google_sign_in_service.dart';
 
@@ -12,29 +13,43 @@ const _tokenKey = 'auth_token';
 class AuthNotifier extends StateNotifier<AuthStateData> {
   final AuthService authService;
   final FlutterSecureStorage secureStorage;
+  late final BiometricAuthService biometricService;
 
   AuthNotifier({
     required this.authService,
     required this.secureStorage,
   }) : super(AuthStateData.unauthenticated()) {
+    biometricService = BiometricAuthService(secureStorage);
     _initAuth();
   }
 
   Future<void> _initAuth() async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
+
+      // 1. Try biometric login first if enabled
+      final biometricToken = await biometricService.authenticateWithBiometric();
+      if (biometricToken != null) {
+        authService.setToken(biometricToken);
+        final user = await authService.getCurrentUser();
+        state = AuthStateData.authenticated(user);
+        return;
+      }
+
+      // 2. Try saved token
       final savedToken = await secureStorage.read(key: _tokenKey);
       if (savedToken != null) {
         authService.setToken(savedToken);
         final user = await authService.getCurrentUser();
         state = AuthStateData.authenticated(user);
-      } else {
-        // Try dev-mode auto-login if no saved token
-        final devAuth = DevAuthHelper(secureStorage);
-        await devAuth.autoLogin(authService);
-        final user = await authService.getCurrentUser();
-        state = AuthStateData.authenticated(user);
+        return;
       }
+
+      // 3. Try dev-mode auto-login if no saved token
+      final devAuth = DevAuthHelper(secureStorage);
+      await devAuth.autoLogin(authService);
+      final user = await authService.getCurrentUser();
+      state = AuthStateData.authenticated(user);
     } catch (e) {
       await secureStorage.delete(key: _tokenKey);
       authService.clearToken();
@@ -85,9 +100,38 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
     try {
       await authService.logout();
       await secureStorage.delete(key: _tokenKey);
+      await biometricService.disableBiometric();
       state = AuthStateData.unauthenticated();
     } catch (e) {
       state = AuthStateData.error(e.toString());
+    }
+  }
+
+  /// Enable biometric login with current authentication token
+  Future<void> enableBiometricLogin() async {
+    try {
+      final token = await secureStorage.read(key: _tokenKey);
+      if (token != null) {
+        await biometricService.enableBiometric(token);
+        if (kDebugMode) {
+          debugPrint('✓ Biometric login enabled');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error enabling biometric: $e');
+      }
+    }
+  }
+
+  /// Disable biometric login
+  Future<void> disableBiometricLogin() async {
+    try {
+      await biometricService.disableBiometric();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error disabling biometric: $e');
+      }
     }
   }
 }

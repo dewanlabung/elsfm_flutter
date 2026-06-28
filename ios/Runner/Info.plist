@@ -67,4 +67,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>We need face recognition to unlock ELSFM with biometric authentication</string>
+	<key>NSTouchIDUsageDescription</key>
+	<string>We need fingerprint recognition to unlock ELSFM with biometric authentication</string>
+</dict>
 </plist>
