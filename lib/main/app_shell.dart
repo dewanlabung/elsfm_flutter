@@ -25,7 +25,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     '/home',
     '/search',
     '/library',
-    '/recommendations',
+    '/profile',
   ];
 
   @override
@@ -73,9 +73,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             label: 'Library',
           ),
           NavigationDestination(
-            icon: Icon(Icons.star_border),
-            selectedIcon: Icon(Icons.star),
-            label: 'For You',
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),

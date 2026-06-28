@@ -10,9 +10,10 @@ class UserLibraryRepository {
 
   /// Get user's complete library (favorites, history, statistics)
   /// Authorization: User must be authenticated
+  /// Endpoint: GET /api/v1/user/library
   Future<UserLibrary> getUserLibrary() async {
     try {
-      final response = await dio.get('/library');
+      final response = await dio.get('/user/library');
       return UserLibrary.fromJson(response.data as Map<String, dynamic>);
     } on DioException {
       rethrow;
@@ -21,6 +22,7 @@ class UserLibraryRepository {
 
   /// Get user's favorite songs
   /// Authorization: User must be authenticated
+  /// Endpoint: GET /api/v1/user/library/tracks
   Future<List<Track>> getFavorites({
     int page = 1,
     int limit = 50,
@@ -28,7 +30,7 @@ class UserLibraryRepository {
   }) async {
     try {
       final response = await dio.get(
-        '/library/favorites',
+        '/user/library/tracks',
         queryParameters: {
           'page': page,
           'limit': limit,
@@ -36,9 +38,19 @@ class UserLibraryRepository {
         },
       );
 
-      return ((response.data as List?) ?? [])
-          .map((e) => Track.fromJson(e as Map<String, dynamic>))
-          .toList();
+      // Handle paginated response format
+      final data = response.data;
+      if (data is List) {
+        return data
+            .map((e) => Track.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else if (data is Map<String, dynamic>) {
+        final tracks = (data['data'] as List?) ?? [];
+        return tracks
+            .map((e) => Track.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
     } on DioException {
       rethrow;
     }
@@ -46,10 +58,11 @@ class UserLibraryRepository {
 
   /// Add a song to favorites
   /// Authorization: User must be authenticated
+  /// Endpoint: POST /api/v1/user/library/tracks/{trackId}/favorite
   Future<void> addFavorite(int trackId) async {
     try {
       await dio.post(
-        '/library/favorites/$trackId',
+        '/user/library/tracks/$trackId/favorite',
       );
     } on DioException {
       rethrow;
@@ -58,10 +71,11 @@ class UserLibraryRepository {
 
   /// Remove a song from favorites
   /// Authorization: User must be authenticated
+  /// Endpoint: DELETE /api/v1/user/library/tracks/{trackId}/favorite
   Future<void> removeFavorite(int trackId) async {
     try {
       await dio.delete(
-        '/library/favorites/$trackId',
+        '/user/library/tracks/$trackId/favorite',
       );
     } on DioException {
       rethrow;
@@ -70,10 +84,11 @@ class UserLibraryRepository {
 
   /// Check if a song is favorited
   /// Authorization: User must be authenticated
+  /// Endpoint: GET /api/v1/user/library/tracks/{trackId}/is-favorite
   Future<bool> isFavorited(int trackId) async {
     try {
       final response = await dio.get(
-        '/library/favorites/$trackId/check',
+        '/user/library/tracks/$trackId/is-favorite',
       );
 
       return response.data?['is_favorited'] as bool? ?? false;
@@ -84,22 +99,33 @@ class UserLibraryRepository {
 
   /// Get user's play history
   /// Authorization: User must be authenticated
+  /// Endpoint: GET /api/v1/user/history
   Future<List<Track>> getHistory({
     int page = 1,
     int limit = 100,
   }) async {
     try {
       final response = await dio.get(
-        '/library/history',
+        '/user/history',
         queryParameters: {
           'page': page,
           'limit': limit,
         },
       );
 
-      return ((response.data as List?) ?? [])
-          .map((e) => Track.fromJson(e as Map<String, dynamic>))
-          .toList();
+      // Handle paginated response format
+      final data = response.data;
+      if (data is List) {
+        return data
+            .map((e) => Track.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else if (data is Map<String, dynamic>) {
+        final tracks = (data['data'] as List?) ?? [];
+        return tracks
+            .map((e) => Track.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
     } on DioException {
       rethrow;
     }
@@ -107,14 +133,16 @@ class UserLibraryRepository {
 
   /// Log a song play (record listening history)
   /// Authorization: User must be authenticated
+  /// Endpoint: POST /api/v1/user/history
   Future<void> logPlay({
     required int trackId,
     int? durationPlayedSeconds,
   }) async {
     try {
       await dio.post(
-        '/library/history/$trackId',
+        '/user/history',
         data: {
+          'track_id': trackId,
           if (durationPlayedSeconds != null) 'duration_played_seconds': durationPlayedSeconds,
         },
       );
@@ -125,9 +153,10 @@ class UserLibraryRepository {
 
   /// Clear user's play history
   /// Authorization: User must be authenticated
+  /// Endpoint: DELETE /api/v1/user/history
   Future<void> clearHistory() async {
     try {
-      await dio.delete('/library/history');
+      await dio.delete('/user/history');
     } on DioException {
       rethrow;
     }
@@ -135,12 +164,13 @@ class UserLibraryRepository {
 
   /// Get listening statistics for user
   /// Authorization: User must be authenticated
+  /// Endpoint: GET /api/v1/user/statistics
   Future<Map<String, dynamic>> getStatistics({
     String period = 'month', // 'week', 'month', 'year', 'all'
   }) async {
     try {
       final response = await dio.get(
-        '/library/statistics',
+        '/user/statistics',
         queryParameters: {
           'period': period,
         },
@@ -154,22 +184,33 @@ class UserLibraryRepository {
 
   /// Get top tracks for user in a time period
   /// Authorization: User must be authenticated
+  /// Endpoint: GET /api/v1/user/top-tracks
   Future<List<Track>> getTopTracks({
     String period = 'month',
     int limit = 20,
   }) async {
     try {
       final response = await dio.get(
-        '/library/top-tracks',
+        '/user/top-tracks',
         queryParameters: {
           'period': period,
           'limit': limit,
         },
       );
 
-      return ((response.data as List?) ?? [])
-          .map((e) => Track.fromJson(e as Map<String, dynamic>))
-          .toList();
+      // Handle paginated response format
+      final data = response.data;
+      if (data is List) {
+        return data
+            .map((e) => Track.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else if (data is Map<String, dynamic>) {
+        final tracks = (data['data'] as List?) ?? [];
+        return tracks
+            .map((e) => Track.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
     } on DioException {
       rethrow;
     }

@@ -97,7 +97,15 @@ class SearchResultsList extends ConsumerWidget {
                 width: double.infinity,
                 height: 120,
                 color: Colors.grey[300],
-                child: const Icon(Icons.person, size: 48),
+                child: artist.image != null && artist.image!.isNotEmpty
+                    ? Image.network(
+                        artist.image!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.person, size: 48);
+                        },
+                      )
+                    : const Icon(Icons.person, size: 48),
               ),
               Padding(
                 padding: const EdgeInsets.all(8),

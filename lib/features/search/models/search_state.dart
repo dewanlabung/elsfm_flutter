@@ -1,5 +1,6 @@
 import 'package:elsfm/data/models/track.dart';
 import 'package:elsfm/data/models/artist.dart';
+import 'package:elsfm/data/models/album.dart';
 import 'package:elsfm/data/models/playlist.dart';
 
 /// Search state container for UI updates
@@ -53,6 +54,7 @@ class SearchState {
 class SearchResults {
   final List<Track> songs;
   final List<Artist> artists;
+  final List<Album> albums;
   final List<Playlist> playlists;
   final int page;
   final int total;
@@ -61,6 +63,7 @@ class SearchResults {
   SearchResults({
     required this.songs,
     required this.artists,
+    required this.albums,
     required this.playlists,
     this.page = 1,
     this.total = 0,
@@ -70,10 +73,11 @@ class SearchResults {
   factory SearchResults.empty() => SearchResults(
     songs: [],
     artists: [],
+    albums: [],
     playlists: [],
   );
 
-  bool get isEmpty => songs.isEmpty && artists.isEmpty && playlists.isEmpty;
+  bool get isEmpty => songs.isEmpty && artists.isEmpty && albums.isEmpty && playlists.isEmpty;
 
   bool get isNotEmpty => !isEmpty;
 }

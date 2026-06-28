@@ -65,8 +65,16 @@ class TrendingSection extends StatelessWidget {
                       children: [
                         CircleAvatar(
                           radius: 48,
+                          backgroundImage: (artist.image != null && artist.image!.isNotEmpty)
+                              ? NetworkImage(artist.image!)
+                              : null,
                           backgroundColor: Colors.grey[300],
-                          child: const Icon(Icons.person, size: 32),
+                          onBackgroundImageError: (exception, stackTrace) {
+                            // Fallback to grey placeholder
+                          },
+                          child: (artist.image == null || artist.image!.isEmpty)
+                              ? const Icon(Icons.person, size: 32)
+                              : null,
                         ),
                         const SizedBox(height: 8),
                         SizedBox(

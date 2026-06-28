@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../models/track.dart';
 import '../models/artist.dart';
+import '../models/album.dart';
 import '../models/playlist.dart';
 
 /// Repository for search functionality across songs, artists, and playlists.
@@ -35,10 +36,10 @@ class SearchRepository {
     return [];
   }
 
-  /// Search across tracks and artists.
+  /// Search across tracks, artists, albums, and playlists.
   ///
-  /// Uses `/tracks?query=...` and `/artists?query=...` because the BeMusic
-  /// `/search` route is an SPA initialisation endpoint, not a REST API.
+  /// Uses `/tracks?query=...`, `/artists?query=...`, `/albums?query=...`, and `/playlists?query=...`
+  /// because the BeMusic `/search` route is an SPA initialisation endpoint, not a REST API.
   Future<Map<String, dynamic>> search({
     required String query,
     int page = 1,
@@ -56,6 +57,16 @@ class SearchRepository {
           'page': page,
           'perPage': perPage,
         }),
+        dio.get('/albums', queryParameters: {
+          'query': query,
+          'page': page,
+          'perPage': perPage,
+        }),
+        dio.get('/playlists', queryParameters: {
+          'query': query,
+          'page': page,
+          'perPage': perPage,
+        }),
       ]);
 
       final songs = _extractPageData(results[0].data)
@@ -66,10 +77,19 @@ class SearchRepository {
           .map((e) => Artist.fromJson(e as Map<String, dynamic>))
           .toList();
 
+      final albums = _extractPageData(results[2].data)
+          .map((e) => Album.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      final playlists = _extractPageData(results[3].data)
+          .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
+          .toList();
+
       return {
         'songs': songs,
         'artists': artists,
-        'playlists': <Playlist>[],
+        'albums': albums,
+        'playlists': playlists,
       };
     } on DioException {
       rethrow;

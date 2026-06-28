@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:elsfm/data/repositories/search_repository.dart';
 import 'package:elsfm/data/models/track.dart';
 import 'package:elsfm/data/models/artist.dart';
+import 'package:elsfm/data/models/album.dart';
 import 'package:elsfm/data/models/playlist.dart';
 import '../models/search_state.dart';
 
@@ -31,6 +32,7 @@ class SearchService {
       return SearchResults(
         songs: result['songs'] as List<Track>? ?? [],
         artists: result['artists'] as List<Artist>? ?? [],
+        albums: result['albums'] as List<Album>? ?? [],
         playlists: result['playlists'] as List<Playlist>? ?? [],
         page: (result['page'] as num?)?.toInt() ?? page,
         total: (result['total'] as num?)?.toInt() ?? 0,
