@@ -57,7 +57,7 @@ class ProfileScreen extends ConsumerWidget {
                       Chip(
                         label: const Text('Email Verified'),
                         backgroundColor:
-                            Colors.green.withValues(alpha: 0.2),
+                            Colors.green.withOpacity(0.2),
                         labelStyle: const TextStyle(color: Colors.green),
                       ),
                     ],
