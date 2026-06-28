@@ -115,11 +115,10 @@ Future<AudioHandler> initAudioService(AudioPlayer audioPlayer, {List<Track>? tra
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.elsfm.app.channel.audio',
       androidNotificationChannelName: 'Music playback',
-      androidNotificationOngoing: true,
+      androidNotificationOngoing: false,
       androidNotificationIcon: 'mipmap/ic_launcher',
       // Keep service alive even when app is paused (CRITICAL for background playback)
       androidStopForegroundOnPause: false,
-      androidForegroundServiceType: AndroidForegroundServiceType.mediaPlayback,
     ),
   );
 
