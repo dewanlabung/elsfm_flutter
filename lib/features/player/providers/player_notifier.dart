@@ -155,7 +155,7 @@ final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.Playe
 });
 
 /// Helper to set auth token on player service
-Future<void> _setAuthToken(WidgetRef ref) async {
+Future<void> _setAuthToken(Ref ref) async {
   try {
     final storage = const FlutterSecureStorage();
     final token = await storage.read(key: 'auth_token');

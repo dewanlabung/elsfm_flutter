@@ -171,7 +171,7 @@ class _BiometricToggleTileState extends ConsumerState<_BiometricToggleTile> {
                         .read(authNotifierProvider.notifier)
                         .enableBiometricLogin();
                     // Refresh the provider
-                    ref.invalidate(isBiometricEnabledProvider);
+                    ref.invalidate(biometricEnabledProvider);
                   } else {
                     // Disable biometric
                     await ref

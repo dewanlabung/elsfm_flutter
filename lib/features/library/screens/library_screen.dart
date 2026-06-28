@@ -166,7 +166,7 @@ class _SongsScreen extends ConsumerWidget {
                 title: Text(track.name),
                 subtitle: Text(track.artists.map((a) => a.name).join(', ')),
                 trailing: const Icon(Icons.play_arrow),
-                onTap: () => ref.read(playerNotifierProvider.notifier).playTrack(track),
+                onTap: () => ref.read(playerProvider.notifier).playTrack(track),
               );
             },
           );
@@ -209,7 +209,7 @@ class _HistoryScreen extends ConsumerWidget {
                 title: Text(track.name),
                 subtitle: Text(track.artists.map((a) => a.name).join(', ')),
                 trailing: const Icon(Icons.play_arrow),
-                onTap: () => ref.read(playerNotifierProvider.notifier).playTrack(track),
+                onTap: () => ref.read(playerProvider.notifier).playTrack(track),
               );
             },
           );
