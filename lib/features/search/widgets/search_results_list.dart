@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../models/search_state.dart';
 import 'package:elsfm/data/models/track.dart';
+import 'package:elsfm/data/models/artist.dart';
 import 'package:elsfm/data/models/album.dart';
-import 'package:elsfm/data/models/image_helper.dart';
+import 'package:elsfm/data/models/playlist.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
 
 /// Search results display widget
@@ -32,14 +34,10 @@ class SearchResultsList extends ConsumerWidget {
           Expanded(
             child: TabBarView(
               children: [
-                // Songs tab
-                _buildSongsList(state.results?.songs ?? [], ref),
-                // Artists tab
-                _buildArtistsList(state.results?.artists ?? []),
-                // Albums tab
-                _buildAlbumsList(state.results?.albums ?? []),
-                // Playlists tab
-                _buildPlaylistsList(state.results?.playlists ?? []),
+                _buildSongsList(context, state.results?.songs ?? [], ref),
+                _buildArtistsList(context, state.results?.artists ?? []),
+                _buildAlbumsList(context, state.results?.albums ?? []),
+                _buildPlaylistsList(context, state.results?.playlists ?? []),
               ],
             ),
           ),
@@ -48,7 +46,7 @@ class SearchResultsList extends ConsumerWidget {
     );
   }
 
-  Widget _buildSongsList(List<Track> songs, WidgetRef ref) {
+  Widget _buildSongsList(BuildContext context, List<Track> songs, WidgetRef ref) {
     if (songs.isEmpty) {
       return const Center(child: Text('No songs found'));
     }
@@ -58,22 +56,20 @@ class SearchResultsList extends ConsumerWidget {
       itemBuilder: (context, index) {
         final song = songs[index];
         return ListTile(
-          leading: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Icon(Icons.music_note),
-          ),
-          title: Text(song.name),
+          leading: _Thumbnail(url: song.image, size: 44, placeholder: Icons.music_note),
+          title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             song.artists.map((a) => a.name).join(', '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          trailing: Text('${song.duration.inMinutes}:${(song.duration.inSeconds % 60).toString().padLeft(2, '0')}'),
+          trailing: Text(
+            '${song.duration.inMinutes}:${(song.duration.inSeconds % 60).toString().padLeft(2, '0')}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
           onTap: () {
             ref.read(playerProvider.notifier).playTrack(song);
           },
@@ -82,112 +78,56 @@ class SearchResultsList extends ConsumerWidget {
     );
   }
 
-  Widget _buildArtistsList(List<dynamic> artists) {
+  Widget _buildArtistsList(BuildContext context, List<Artist> artists) {
     if (artists.isEmpty) {
       return const Center(child: Text('No artists found'));
     }
 
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.8,
-      ),
+    return ListView.builder(
       itemCount: artists.length,
       itemBuilder: (context, index) {
         final artist = artists[index];
-        return Card(
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 120,
-                color: Colors.grey[300],
-                child: artist.image != null && artist.image!.isNotEmpty
-                    ? Image.network(
-                        artist.image!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.person, size: 48);
-                        },
-                      )
-                    : const Icon(Icons.person, size: 48),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text(
-                  artist.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
+        return ListTile(
+          leading: _CircularThumbnail(url: artist.image, size: 44),
+          title: Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Artist page coming soon')),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildAlbumsList(List<Album> albums) {
+  Widget _buildAlbumsList(BuildContext context, List<Album> albums) {
     if (albums.isEmpty) {
       return const Center(child: Text('No albums found'));
     }
 
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.8,
-      ),
+    return ListView.builder(
       itemCount: albums.length,
       itemBuilder: (context, index) {
         final album = albums[index];
-        return Card(
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 120,
-                color: Colors.grey[300],
-                child: album.image != null && album.image!.isNotEmpty
-                    ? Image.network(
-                        album.image!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.album, size: 48);
-                        },
-                      )
-                    : const Icon(Icons.album, size: 48),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  children: [
-                    Text(
-                      album.name,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    if (album.artists.isNotEmpty)
-                      Text(
-                        album.artists.map((a) => a.name).join(', '),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        return ListTile(
+          leading: _Thumbnail(url: album.image, size: 44, placeholder: Icons.album),
+          title: Text(album.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: album.artists.isNotEmpty
+              ? Text(
+                  album.artists.map((a) => a.name).join(', '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+          onTap: () {
+            context.push('/album/${album.id}');
+          },
         );
       },
     );
   }
 
-  Widget _buildPlaylistsList(List<dynamic> playlists) {
+  Widget _buildPlaylistsList(BuildContext context, List<Playlist> playlists) {
     if (playlists.isEmpty) {
       return const Center(child: Text('No playlists found'));
     }
@@ -197,30 +137,80 @@ class SearchResultsList extends ConsumerWidget {
       itemBuilder: (context, index) {
         final playlist = playlists[index];
         return ListTile(
-          leading: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: playlist.image != null && playlist.image!.isNotEmpty
-                ? Image.network(
-                    playlist.image!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.playlist_play);
-                    },
-                  )
-                : const Icon(Icons.playlist_play),
-          ),
-          title: Text(playlist.name),
+          leading: _Thumbnail(url: playlist.image, size: 44, placeholder: Icons.playlist_play),
+          title: Text(playlist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text('${playlist.views} views'),
           onTap: () {
-            // Open playlist
+            context.push('/playlist/${playlist.id}');
           },
         );
       },
+    );
+  }
+}
+
+/// Rectangular thumbnail with fallback icon.
+class _Thumbnail extends StatelessWidget {
+  final String? url;
+  final double size;
+  final IconData placeholder;
+
+  const _Thumbnail({required this.url, required this.size, required this.placeholder});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: url != null && url!.isNotEmpty
+            ? Image.network(
+                url!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _fallback(context),
+              )
+            : _fallback(context),
+      ),
+    );
+  }
+
+  Widget _fallback(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Icon(placeholder, size: size * 0.5, color: Theme.of(context).colorScheme.outline),
+    );
+  }
+}
+
+/// Circular thumbnail for artists.
+class _CircularThumbnail extends StatelessWidget {
+  final String? url;
+  final double size;
+
+  const _CircularThumbnail({required this.url, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: url != null && url!.isNotEmpty
+            ? Image.network(
+                url!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _fallback(context),
+              )
+            : _fallback(context),
+      ),
+    );
+  }
+
+  Widget _fallback(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Icon(Icons.person, size: size * 0.5, color: Theme.of(context).colorScheme.outline),
     );
   }
 }

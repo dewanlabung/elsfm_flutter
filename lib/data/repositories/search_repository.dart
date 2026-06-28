@@ -8,13 +8,13 @@ import '../models/playlist.dart';
 ///
 /// BeMusic / Laravel backend notes (verified against https://www.elsfm.com/api/v1):
 ///
+/// - The real search endpoint is GET /search?q={query}&type=track,artist,album,playlist&limit=N
+///   It returns: { "results": { "tracks": { "data": [...] }, "artists": { "data": [...] },
+///                               "albums": { "data": [...] }, "playlists": { "data": [...] } } }
 /// - List endpoints (`/tracks`, `/artists`, `/albums`) return:
 ///     `{ "pagination": { "data": [...], "current_page": 1, "next_page": 2, ... }, "status": "success" }`
 /// - The `/trending` and `/homepage` routes serve the SPA shell (HTML), not JSON.
 ///   Use `/tracks?orderBy=plays&perPage=N` and `/artists?orderBy=plays&perPage=N` instead.
-/// - The `/search?q=...` endpoint returns `{ "query": "", "results": [], "loader": "searchPage" }`
-///   when hit server-side — it is an SPA page-initialisation route, not a REST search.
-///   Use `/tracks?query=...` and `/artists?query=...` for real search.
 class SearchRepository {
   final Dio dio;
 
@@ -38,52 +38,34 @@ class SearchRepository {
 
   /// Search across tracks, artists, albums, and playlists.
   ///
-  /// Uses `/tracks?query=...`, `/artists?query=...`, `/albums?query=...`, and `/playlists?query=...`
-  /// because the BeMusic `/search` route is an SPA initialisation endpoint, not a REST API.
+  /// Uses the real /search?q=... endpoint which returns:
+  ///   { "results": { "tracks": { "data": [...] }, "artists": { "data": [...] },
+  ///                  "albums": { "data": [...] }, "playlists": { "data": [...] } } }
   Future<Map<String, dynamic>> search({
     required String query,
     int page = 1,
     int perPage = 20,
   }) async {
     try {
-      final results = await Future.wait([
-        dio.get('/tracks', queryParameters: {
-          'query': query,
-          'page': page,
-          'perPage': perPage,
-        }),
-        dio.get('/artists', queryParameters: {
-          'query': query,
-          'page': page,
-          'perPage': perPage,
-        }),
-        dio.get('/albums', queryParameters: {
-          'query': query,
-          'page': page,
-          'perPage': perPage,
-        }),
-        dio.get('/playlists', queryParameters: {
-          'query': query,
-          'page': page,
-          'perPage': perPage,
-        }),
-      ]);
+      final response = await dio.get<Map<String, dynamic>>('/search', queryParameters: {
+        'q': query,
+        'type': 'track,artist,album,playlist',
+        'limit': perPage,
+      });
 
-      final songs = _extractPageData(results[0].data)
-          .map((e) => Track.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final raw = response.data ?? {};
+      final results = raw['results'] as Map<String, dynamic>? ?? {};
 
-      final artists = _extractPageData(results[1].data)
-          .map((e) => Artist.fromJson(e as Map<String, dynamic>))
-          .toList();
+      List<T> parseSection<T>(String key, T Function(Map<String, dynamic>) fromJson) {
+        final section = results[key] as Map<String, dynamic>? ?? {};
+        final data = section['data'] as List? ?? [];
+        return data.map((e) => fromJson(e as Map<String, dynamic>)).toList();
+      }
 
-      final albums = _extractPageData(results[2].data)
-          .map((e) => Album.fromJson(e as Map<String, dynamic>))
-          .toList();
-
-      final playlists = _extractPageData(results[3].data)
-          .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final songs = parseSection('tracks', Track.fromJson);
+      final artists = parseSection('artists', Artist.fromJson);
+      final albums = parseSection('albums', Album.fromJson);
+      final playlists = parseSection('playlists', Playlist.fromJson);
 
       return {
         'songs': songs,

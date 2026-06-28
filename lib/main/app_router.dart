@@ -7,6 +7,8 @@ import '../features/library/screens/library_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 import '../features/player/screens/now_playing_screen.dart';
 import '../features/settings/screens/settings_screen.dart';
+import '../features/playlist/screens/playlist_detail_screen.dart';
+import '../features/album/screens/album_detail_screen.dart';
 
 /// App router configuration with all routes
 final appRouter = GoRouter(
@@ -40,6 +42,20 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/playlist/:id',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id'] ?? '0');
+            return PlaylistDetailScreen(playlistId: id);
+          },
+        ),
+        GoRoute(
+          path: '/album/:id',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id'] ?? '0');
+            return AlbumDetailScreen(albumId: id);
+          },
         ),
       ],
     ),
