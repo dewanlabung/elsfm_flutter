@@ -6,6 +6,7 @@ import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
 import '../../../config/app_config.dart';
 import '../providers/home_provider.dart';
+import '../../player/providers/player_notifier.dart';
 
 String _formatDuration(Duration duration) {
   final totalSeconds = duration.inSeconds;
@@ -269,7 +270,7 @@ class _TrackList extends StatelessWidget {
   }
 }
 
-class _TrackTile extends StatelessWidget {
+class _TrackTile extends ConsumerWidget {
   const _TrackTile({required this.track, required this.index});
 
   final Track track;
@@ -283,7 +284,7 @@ class _TrackTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final imageUrl = _imageUrl();
     final artistNames = track.artists.map((a) => a.name).join(', ');
     final duration = _formatDuration(track.duration);
@@ -317,6 +318,9 @@ class _TrackTile extends StatelessWidget {
         duration,
         style: Theme.of(context).textTheme.bodySmall,
       ),
+      onTap: () {
+        ref.read(playerProvider.notifier).playTrack(track);
+      },
     );
   }
 }
