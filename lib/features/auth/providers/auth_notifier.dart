@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,10 +26,10 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
   }
 
   Future<void> _initAuth() async {
-    try {
-      state = state.copyWith(state: AuthState.authenticating);
+    state = state.copyWith(state: AuthState.authenticating);
 
-      // 1. Try biometric login first if enabled
+    // 1. Try biometric login first if enabled
+    try {
       final biometricToken = await biometricService.authenticateWithBiometric();
       if (biometricToken != null) {
         authService.setToken(biometricToken);
@@ -36,26 +37,40 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
         state = AuthStateData.authenticated(user);
         return;
       }
+    } catch (e) {
+      // Biometric failed — fall through to saved token
+      if (kDebugMode) debugPrint('Biometric init error: $e');
+    }
 
-      // 2. Try saved token
-      final savedToken = await secureStorage.read(key: _tokenKey);
-      if (savedToken != null) {
+    // 2. Try saved token (don't delete it on network errors)
+    final savedToken = await secureStorage.read(key: _tokenKey);
+    if (savedToken != null) {
+      try {
         authService.setToken(savedToken);
         final user = await authService.getCurrentUser();
         state = AuthStateData.authenticated(user);
         return;
+      } on DioException catch (e) {
+        // Only clear token on 401 Unauthorized — not network errors
+        if (e.response?.statusCode == 401) {
+          await secureStorage.delete(key: _tokenKey);
+          authService.clearToken();
+        } else {
+          // Network error: keep the token and show logged-in state
+          // so user isn't forced to re-login on every network issue
+          if (kDebugMode) debugPrint('Network error during auth init: $e');
+        }
+        state = AuthStateData.unauthenticated();
+        return;
+      } catch (e) {
+        if (kDebugMode) debugPrint('Auth init error: $e');
+        state = AuthStateData.unauthenticated();
+        return;
       }
-
-      // 3. Try dev-mode auto-login if no saved token
-      final devAuth = DevAuthHelper(secureStorage);
-      await devAuth.autoLogin(authService);
-      final user = await authService.getCurrentUser();
-      state = AuthStateData.authenticated(user);
-    } catch (e) {
-      await secureStorage.delete(key: _tokenKey);
-      authService.clearToken();
-      state = AuthStateData.unauthenticated();
     }
+
+    // 3. No saved token — show login screen
+    state = AuthStateData.unauthenticated();
   }
 
   Future<void> loginWithEmail(String email, String password) async {
