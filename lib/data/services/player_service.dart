@@ -4,12 +4,14 @@ import 'package:just_audio/just_audio.dart';
 import '../models/player_state.dart' as ps;
 import '../models/track.dart';
 import 'audio_service_handler.dart';
+import 'sleep_timer_service.dart';
 import '../../config/app_config.dart';
 
 class PlayerService {
   final AudioPlayer _audioPlayer = AudioPlayer();
   late ConcatenatingAudioSource _playlist;
   AudioHandler? _audioHandler;
+  final SleepTimerService _sleepTimer = SleepTimerService();
   List<Track> _tracksList = [];
 
   /// Optional Bearer token forwarded to just_audio for authenticated streaming.
@@ -68,7 +70,11 @@ class PlayerService {
   List<Track> get queue => List.unmodifiable(_tracksList);
 
   Future<void> play() => _audioPlayer.play();
-  Future<void> pause() => _audioPlayer.pause();
+  Future<void> pause() async {
+    _sleepTimer.cancelTimer();
+    await _audioPlayer.pause();
+  }
+
   Future<void> stop() => _audioPlayer.stop();
 
   Future<void> seek(Duration position) => _audioPlayer.seek(position);
@@ -127,8 +133,33 @@ class PlayerService {
 
   AudioPlayer get audioPlayer => _audioPlayer;
   AudioHandler? get audioHandler => _audioHandler;
+  SleepTimerService get sleepTimer => _sleepTimer;
+
+  /// Start a sleep timer that will auto-pause after [duration].
+  ///
+  /// [duration] - How long until playback pauses (e.g., Duration(minutes: 5))
+  void startSleepTimer(Duration duration) {
+    _sleepTimer.startTimer(
+      duration: duration,
+      onComplete: () {
+        pause();
+      },
+    );
+  }
+
+  /// Cancel the active sleep timer.
+  void cancelSleepTimer() {
+    _sleepTimer.cancelTimer();
+  }
+
+  /// Get remaining time on the sleep timer, or null if not running.
+  Duration? get sleepTimerRemaining => _sleepTimer.remainingTime;
+
+  /// Check if sleep timer is running.
+  bool get isSleepTimerRunning => _sleepTimer.isRunning;
 
   Future<void> dispose() async {
+    _sleepTimer.cancelTimer();
     if (_audioHandler != null) {
       await _audioHandler!.stop();
     }
