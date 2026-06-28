@@ -6,6 +6,7 @@ import '../features/search/screens/search_screen.dart';
 import '../features/library/screens/library_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 import '../features/player/screens/now_playing_screen.dart';
+import '../features/settings/screens/settings_screen.dart';
 
 /// App router configuration with all routes
 final appRouter = GoRouter(
@@ -35,6 +36,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/now-playing',
           builder: (context, state) => const NowPlayingScreen(),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) => const SettingsScreen(),
         ),
       ],
     ),

@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart' show DioException;
+import 'package:dio/dio.dart' show DioException, Dio, BaseOptions;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -157,11 +157,20 @@ final secureStorageProvider = Provider((ref) {
 });
 
 final authServiceProvider = Provider((ref) {
-  return ref.watch(dioProvider).when(
-    data: (dio) => AuthService(dio),
-    loading: () => throw Exception('Dio not ready'),
-    error: (err, st) => throw err,
-  );
+  // Use the full dioProvider when available, fallback to sync initialization
+  try {
+    return ref.watch(dioProvider).when(
+      data: (dio) => AuthService(dio),
+      loading: () {
+        // Return auth service with default Dio config while initializing
+        return AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1')));
+      },
+      error: (err, st) => throw err,
+    );
+  } catch (e) {
+    // Fallback: create auth service with basic Dio config
+    return AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1')));
+  }
 });
 
 final authNotifierProvider =
