@@ -34,20 +34,57 @@ class MiniPlayer extends ConsumerWidget {
                   : 0,
               minHeight: 2,
             ),
+            // Error banner
+            if (playerState.error != null)
+              Container(
+                width: double.infinity,
+                color: Colors.red.withOpacity(0.8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Text(
+                  'Playback error — ${playerState.error}',
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             // Player info
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
                   // Album art
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: const Icon(Icons.music_note, size: 20),
+                  Builder(
+                    builder: (_) {
+                      final raw = currentTrack.image ?? '';
+                      final url = raw.startsWith('http')
+                          ? raw
+                          : raw.isNotEmpty
+                              ? 'https://www.elsfm.com/$raw'
+                              : '';
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: url.isNotEmpty
+                            ? Image.network(
+                                url,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 40,
+                                  height: 40,
+                                  color: Colors.grey[800],
+                                  child: const Icon(Icons.music_note, size: 20),
+                                ),
+                              )
+                            : Container(
+                                width: 40,
+                                height: 40,
+                                color: Colors.grey[800],
+                                child: const Icon(Icons.music_note, size: 20),
+                              ),
+                      );
+                    },
                   ),
                   const SizedBox(width: 12),
                   // Track info

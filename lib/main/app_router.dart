@@ -9,6 +9,7 @@ import '../features/player/screens/now_playing_screen.dart';
 import '../features/settings/screens/settings_screen.dart';
 import '../features/playlist/screens/playlist_detail_screen.dart';
 import '../features/album/screens/album_detail_screen.dart';
+import '../features/artist/screens/artist_detail_screen.dart';
 
 /// App router configuration with all routes
 final appRouter = GoRouter(
@@ -55,6 +56,13 @@ final appRouter = GoRouter(
           builder: (context, state) {
             final id = int.parse(state.pathParameters['id'] ?? '0');
             return AlbumDetailScreen(albumId: id);
+          },
+        ),
+        GoRoute(
+          path: '/artist/:id',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id'] ?? '0');
+            return ArtistDetailScreen(artistId: id);
           },
         ),
       ],

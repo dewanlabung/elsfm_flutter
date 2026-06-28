@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
@@ -13,6 +14,8 @@ class PlayerService {
   AudioHandler? _audioHandler;
   final SleepTimerService _sleepTimer = SleepTimerService();
   List<Track> _tracksList = [];
+  late final StreamController<String?> _errorController =
+      StreamController<String?>.broadcast();
 
   /// Optional Bearer token forwarded to just_audio for authenticated streaming.
   String? _authToken;
@@ -26,7 +29,7 @@ class PlayerService {
   /// consumed directly by just_audio; no redirect or JSON response is expected.
   String _streamUrl(int trackId) {
     final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
-    return '$base/tracks/$trackId/stream';
+    return '$base/tracks/$trackId/play';
   }
 
   Map<String, String> get _authHeaders => {
@@ -40,6 +43,13 @@ class PlayerService {
 
     _playlist = ConcatenatingAudioSource(children: []);
     await _audioPlayer.setAudioSource(_playlist);
+
+    _audioPlayer.playbackEventStream.listen(
+      (_) {},
+      onError: (Object e, StackTrace st) {
+        _errorController.add(e.toString());
+      },
+    );
 
     // Initialize audio service for lock screen controls
     if (tracks != null) {
@@ -118,14 +128,7 @@ class PlayerService {
     });
   }
 
-  Stream<String?> get errorStream {
-    // Map playback errors from just_audio
-    return _audioPlayer.playbackEventStream.map((event) {
-      // just_audio reports errors through the stream if audio loading fails
-      // For now, we'll emit null as no error
-      return null;
-    }).distinct();
-  }
+  Stream<String?> get errorStream => _errorController.stream;
 
   Stream<int?> get currentIndexStream => _audioPlayer.currentIndexStream;
   Stream<Duration> get positionStream => _audioPlayer.positionStream;
@@ -164,5 +167,6 @@ class PlayerService {
       await _audioHandler!.stop();
     }
     await _audioPlayer.dispose();
+    await _errorController.close();
   }
 }

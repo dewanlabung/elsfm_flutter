@@ -91,9 +91,7 @@ class SearchResultsList extends ConsumerWidget {
           leading: _CircularThumbnail(url: artist.image, size: 44),
           title: Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Artist page coming soon')),
-            );
+            context.push('/artist/${artist.id}');
           },
         );
       },

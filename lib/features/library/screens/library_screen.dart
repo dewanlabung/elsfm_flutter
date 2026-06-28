@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:elsfm/features/auth/providers/auth_notifier.dart';
 import 'package:elsfm/features/auth/models/auth_state.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
@@ -107,24 +108,50 @@ class _PlaylistsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      children: [
-        _SectionHeader(
-          title: 'Your Playlists',
-          action: IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Create playlist coming soon')),
+    final playlistsAsync = ref.watch(userPlaylistsProvider);
+
+    return playlistsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => _EmptyState(
+        icon: Icons.error_outline,
+        message: 'Could not load playlists',
+        hint: e.toString(),
+      ),
+      data: (playlists) {
+        return ListView(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            _SectionHeader(
+              title: 'Your Playlists',
+              action: IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Create playlist coming soon')),
+                ),
+              ),
             ),
-          ),
-        ),
-        _EmptyState(
-          icon: Icons.playlist_play,
-          message: 'No playlists yet',
-          hint: 'Create a playlist to organize your music',
-        ),
-      ],
+            if (playlists.isEmpty)
+              _EmptyState(
+                icon: Icons.playlist_play,
+                message: 'No playlists yet',
+                hint: 'Create a playlist to organize your music',
+              )
+            else
+              ...playlists.map(
+                (playlist) => ListTile(
+                  leading: _TrackArt(imageUrl: playlist.image),
+                  title: Text(
+                    playlist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text('${playlist.views} views'),
+                  onTap: () => context.push('/playlist/${playlist.id}'),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
