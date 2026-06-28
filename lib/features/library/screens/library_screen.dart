@@ -158,7 +158,7 @@ class _SongsTab extends ConsumerWidget {
           itemBuilder: (context, i) {
             final track = tracks[i];
             return ListTile(
-              leading: _TrackArt(imageUrl: track.imageUrl),
+              leading: _TrackArt(imageUrl: track.image),
               title: Text(track.name, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(
                 track.artists.map((a) => a.name).join(', '),
@@ -214,7 +214,7 @@ class _GenresTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     const genres = [
       ('Pop', Icons.music_note, Colors.pink),
-      ('Rock', Icons.electric_guitar, Colors.red),
+      ('Rock', Icons.music_video, Colors.red),
       ('Hip-Hop', Icons.mic, Colors.orange),
       ('R&B', Icons.favorite, Colors.purple),
       ('Electronic', Icons.graphic_eq, Colors.blue),
