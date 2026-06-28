@@ -134,26 +134,29 @@ class _PlaylistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const size = 120.0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: _img != null
-                ? Image.network(_img!, width: size, height: size, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _ColorBox(color: _color, size: size))
-                : _ColorBox(color: _color, size: size),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: size,
-            child: Text(playlist.name,
-                maxLines: 2, overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall),
-          ),
-        ],
+    return GestureDetector(
+      onTap: () => context.push('/playlist/${playlist.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _img != null
+                  ? Image.network(_img!, width: size, height: size, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _ColorBox(color: _color, size: size))
+                  : _ColorBox(color: _color, size: size),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: size,
+              child: Text(playlist.name,
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -220,7 +223,7 @@ class _TrackList extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: tracks.length,
-      itemBuilder: (_, i) => _TrackTile(track: tracks[i], index: i + 1),
+      itemBuilder: (_, i) => _TrackTile(track: tracks[i], index: i + 1, allTracks: tracks),
     );
   }
 }
@@ -228,7 +231,8 @@ class _TrackList extends StatelessWidget {
 class _TrackTile extends ConsumerWidget {
   final Track track;
   final int index;
-  const _TrackTile({required this.track, required this.index});
+  final List<Track> allTracks;
+  const _TrackTile({required this.track, required this.index, required this.allTracks});
 
   String? get _img {
     final img = track.image;
@@ -255,7 +259,10 @@ class _TrackTile extends ConsumerWidget {
           ? Text(artists, maxLines: 1, overflow: TextOverflow.ellipsis)
           : null,
       trailing: Text(_fmtDuration(track.duration), style: Theme.of(context).textTheme.bodySmall),
-      onTap: () => ref.read(playerProvider.notifier).playTrack(track),
+      onTap: () {
+        ref.read(playerProvider.notifier).setQueue(allTracks, startIndex: index - 1);
+        context.push('/now-playing');
+      },
     );
   }
 }
