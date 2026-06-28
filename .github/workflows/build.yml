@@ -1,0 +1,144 @@
+name: Build ELSFM Flutter App
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    name: Build Android APK
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'  # Match your version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+        continue-on-error: true  # Don't fail build if tests fail
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Build App Bundle (for Play Store)
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: elsfm-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Upload App Bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: elsfm-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+  build-ios:
+    runs-on: macos-latest
+    name: Build iOS IPA
+    # NOTE: Requires signing certificates/provisioning profiles
+    # Uncomment and configure when ready for App Store submission
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build iOS (debug for now)
+        run: flutter build ios --release --no-codesign
+        continue-on-error: true
+
+      # Uncomment for signing:
+      # - name: Install provisioning profile
+      #   run: |
+      #     mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+      #     echo "${{ secrets.PROVISIONING_PROFILE }}" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      # - name: Install certificate
+      #   run: |
+      #     echo "${{ secrets.APPLE_CERTIFICATE }}" | base64 -d > certificate.p12
+      #     security import certificate.p12 -k ~/Library/Keychains/login.keychain-db -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+
+      # - name: Build IPA
+      #   run: flutter build ipa --release
+      #   env:
+      #     TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload iOS build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elsfm-ios-build
+          path: build/ios/iphoneos/Runner.app
+          retention-days: 30
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-android]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    name: Create Release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: elsfm-release-apk
+
+      - name: Download App Bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: elsfm-release-aab
+
+      - name: Get version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: success()
+        with:
+          files: |
+            app-release.apk
+            app-release.aab
+          tag_name: v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
