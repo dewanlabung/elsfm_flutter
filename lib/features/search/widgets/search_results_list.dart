@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/search_state.dart';
 import 'package:elsfm/data/models/track.dart';
+import 'package:elsfm/data/models/album.dart';
+import 'package:elsfm/data/models/image_helper.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
 
 /// Search results display widget
@@ -16,13 +18,14 @@ class SearchResultsList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         children: [
           TabBar(
             tabs: [
               Tab(text: 'Songs (${state.results?.songs.length ?? 0})'),
               Tab(text: 'Artists (${state.results?.artists.length ?? 0})'),
+              Tab(text: 'Albums (${state.results?.albums.length ?? 0})'),
               Tab(text: 'Playlists (${state.results?.playlists.length ?? 0})'),
             ],
           ),
@@ -33,6 +36,8 @@ class SearchResultsList extends ConsumerWidget {
                 _buildSongsList(state.results?.songs ?? [], ref),
                 // Artists tab
                 _buildArtistsList(state.results?.artists ?? []),
+                // Albums tab
+                _buildAlbumsList(state.results?.albums ?? []),
                 // Playlists tab
                 _buildPlaylistsList(state.results?.playlists ?? []),
               ],
@@ -123,6 +128,65 @@ class SearchResultsList extends ConsumerWidget {
     );
   }
 
+  Widget _buildAlbumsList(List<Album> albums) {
+    if (albums.isEmpty) {
+      return const Center(child: Text('No albums found'));
+    }
+
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: albums.length,
+      itemBuilder: (context, index) {
+        final album = albums[index];
+        return Card(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                height: 120,
+                color: Colors.grey[300],
+                child: album.image != null && album.image!.isNotEmpty
+                    ? Image.network(
+                        album.image!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.album, size: 48);
+                        },
+                      )
+                    : const Icon(Icons.album, size: 48),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  children: [
+                    Text(
+                      album.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    if (album.artists.isNotEmpty)
+                      Text(
+                        album.artists.map((a) => a.name).join(', '),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildPlaylistsList(List<dynamic> playlists) {
     if (playlists.isEmpty) {
       return const Center(child: Text('No playlists found'));
@@ -140,10 +204,18 @@ class SearchResultsList extends ConsumerWidget {
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Icon(Icons.playlist_play),
+            child: playlist.image != null && playlist.image!.isNotEmpty
+                ? Image.network(
+                    playlist.image!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.playlist_play);
+                    },
+                  )
+                : const Icon(Icons.playlist_play),
           ),
           title: Text(playlist.name),
-          subtitle: Text('${playlist.trackCount} songs'),
+          subtitle: Text('${playlist.views} views'),
           onTap: () {
             // Open playlist
           },
