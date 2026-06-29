@@ -143,7 +143,7 @@ class _AppDrawer extends ConsumerWidget {
                   Text(
                     user!.email,
                     style: TextStyle(
-                      color: colorScheme.onPrimary.withValues(alpha: 0.75),
+                      color: colorScheme.onPrimary.withOpacity(0.75),
                       fontSize: 12,
                     ),
                   ),
@@ -237,7 +237,7 @@ class _DrawerItem extends StatelessWidget {
       title: Text(label),
       selected: selected,
       selectedTileColor:
-          Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+          Theme.of(context).colorScheme.primary.withOpacity(0.1),
       selectedColor: Theme.of(context).colorScheme.primary,
       onTap: onTap,
     );

@@ -54,7 +54,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.withValues(alpha: 0.4),
+              color: Colors.grey.withOpacity( 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -97,7 +97,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
-                                .withValues(alpha: 0.6),
+                                .withOpacity( 0.6),
                           ),
                         ),
                     ],
@@ -158,7 +158,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
   Widget _imgFallback() => Container(
         width: 48,
         height: 48,
-        color: Colors.grey.withValues(alpha: 0.2),
+        color: Colors.grey.withOpacity( 0.2),
         child: const Icon(Icons.music_note, color: Colors.grey),
       );
 
@@ -231,7 +231,7 @@ class _AddToPlaylistSheet extends ConsumerWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.withValues(alpha: 0.4),
+              color: Colors.grey.withOpacity( 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
