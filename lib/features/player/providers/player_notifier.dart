@@ -4,11 +4,13 @@ import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
 import '../../../data/models/track.dart';
 import '../../../data/services/player_service.dart';
+import '../../../data/providers/api_client_provider.dart';
 
 class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   final PlayerService playerService;
+  Ref? _ref;
 
-  PlayerNotifier(this.playerService) : super(const player_models.PlayerState(queue: [])) {
+  PlayerNotifier(this.playerService, [this._ref]) : super(const player_models.PlayerState(queue: [])) {
     _initListeners();
   }
 
@@ -50,6 +52,11 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
       await playerService.audioPlayer.seek(Duration.zero, index: startIndex);
     }
     await playerService.play();
+    // Log play to backend after starting
+    final trackId = tracks.isNotEmpty ? tracks[startIndex].id : null;
+    if (trackId != null) {
+      _ref?.read(apiClientProvider).logTrackPlay(trackId);
+    }
   }
 
   /// Convenience method to play a single track immediately.
@@ -157,7 +164,7 @@ final _stubService = PlayerService();
 final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.PlayerState>((ref) {
   final playerServiceAsync = ref.watch(playerServiceProvider);
   return playerServiceAsync.when(
-    data: (playerService) => PlayerNotifier(playerService),
+    data: (playerService) => PlayerNotifier(playerService, ref),
     loading: () => PlayerNotifier(_stubService),
     error: (_, __) => PlayerNotifier(_stubService),
   );

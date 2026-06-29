@@ -237,6 +237,83 @@ class ApiClient {
     );
   }
 
+  // Lyrics
+  Future<Map<String, dynamic>?> getTrackLyrics(int trackId) async {
+    try {
+      final response = await dio.get<Map<String, dynamic>>('/tracks/$trackId/lyrics');
+      return response.data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Artist bio
+  Future<String?> getArtistBio(int artistId) async {
+    try {
+      final response = await dio.get<Map<String, dynamic>>('/artists/$artistId/bio');
+      return response.data?['bio']?['content'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Similar artists
+  Future<List<Map<String, dynamic>>> getSimilarArtists(int artistId) async {
+    try {
+      final response = await dio.get<Map<String, dynamic>>('/artists/$artistId/similar');
+      final data = response.data?['artists']?['data'] as List? ?? [];
+      return data.cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // Log a play after track starts
+  Future<void> logTrackPlay(int trackId) async {
+    try {
+      await dio.post<void>('/tracks/plays/$trackId/log');
+    } catch (_) {}
+  }
+
+  // Notifications
+  Future<List<Map<String, dynamic>>> getNotifications({int page = 1}) async {
+    final response = await dio.get<Map<String, dynamic>>(
+      '/notifications',
+      queryParameters: {'page': page},
+    );
+    final data = response.data?['pagination']?['data'] as List? ?? [];
+    return data.cast<Map<String, dynamic>>();
+  }
+
+  Future<void> markNotificationsRead({List<int>? ids}) async {
+    await dio.post<void>(
+      '/notifications/mark-as-read',
+      data: ids != null ? {'ids': ids} : null,
+    );
+  }
+
+  // Comments
+  Future<List<Map<String, dynamic>>> getComments({
+    required String type,
+    required int id,
+    int page = 1,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+      '/commentable/comments',
+      queryParameters: {'commentable_type': type, 'commentable_id': id, 'page': page},
+    );
+    final data = response.data?['pagination']?['data'] as List? ?? [];
+    return data.cast<Map<String, dynamic>>();
+  }
+
+  Future<void> postComment({required String type, required int id, required String content}) async {
+    await dio.post<void>('/comment', data: {
+      'content': content,
+      'commentable_type': type,
+      'commentable_id': id,
+    });
+  }
+
   PaginationResponse<T> _parsePaginationResponse<T>(
     Map<String, dynamic> data,
     T Function(dynamic) fromJson,

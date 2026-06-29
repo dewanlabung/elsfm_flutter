@@ -4,6 +4,16 @@ import 'package:elsfm/data/models/track.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
 import '../providers/artist_detail_provider.dart';
 import '../../player/widgets/track_context_menu.dart';
+import '../../../data/providers/api_client_provider.dart';
+
+final _artistBioProvider = FutureProvider.family<String?, int>((ref, id) {
+  return ref.watch(apiClientProvider).getArtistBio(id);
+});
+
+final _similarArtistsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, int>((ref, id) {
+  return ref.watch(apiClientProvider).getSimilarArtists(id);
+});
 
 class ArtistDetailScreen extends ConsumerWidget {
   final int artistId;
@@ -71,6 +81,14 @@ class ArtistDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              // Bio section
+              SliverToBoxAdapter(
+                child: _ArtistBioSection(artistId: artistId),
+              ),
+              // Similar artists section
+              SliverToBoxAdapter(
+                child: _SimilarArtistsSection(artistId: artistId),
+              ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
@@ -126,6 +144,172 @@ class ArtistDetailScreen extends ConsumerWidget {
       color: Colors.grey.withOpacity(0.3),
       child: const Icon(Icons.person, size: 80, color: Colors.grey),
     );
+  }
+}
+
+class _ArtistBioSection extends ConsumerStatefulWidget {
+  final int artistId;
+  const _ArtistBioSection({required this.artistId});
+
+  @override
+  ConsumerState<_ArtistBioSection> createState() => _ArtistBioSectionState();
+}
+
+class _ArtistBioSectionState extends ConsumerState<_ArtistBioSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bioAsync = ref.watch(_artistBioProvider(widget.artistId));
+
+    return bioAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (bio) {
+        if (bio == null || bio.trim().isEmpty) return const SizedBox.shrink();
+        // Strip HTML tags for plain display
+        final plain = bio.replaceAll(RegExp(r'<[^>]+>'), '').trim();
+        if (plain.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'About',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              AnimatedCrossFade(
+                firstChild: Text(
+                  plain,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(height: 1.5),
+                ),
+                secondChild: Text(
+                  plain,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(height: 1.5),
+                ),
+                crossFadeState: _expanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 250),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _expanded ? 'Show less' : 'Read more',
+                    style: const TextStyle(
+                      color: Color(0xFF689F38),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SimilarArtistsSection extends ConsumerWidget {
+  final int artistId;
+  const _SimilarArtistsSection({required this.artistId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final simAsync = ref.watch(_similarArtistsProvider(artistId));
+
+    return simAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (artists) {
+        if (artists.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Text(
+                'Similar Artists',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            SizedBox(
+              height: 110,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: artists.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, i) {
+                  final a = artists[i];
+                  final imgRaw = a['image_small'] as String?;
+                  final imgUrl = _resolveImg(imgRaw);
+                  final name = a['name'] as String? ?? '';
+                  final id = a['id'] as int? ?? 0;
+                  return GestureDetector(
+                    onTap: () {
+                      if (id > 0) Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => ArtistDetailScreen(artistId: id),
+                      ));
+                    },
+                    child: SizedBox(
+                      width: 80,
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 36,
+                            backgroundColor: Colors.grey.shade800,
+                            backgroundImage:
+                                imgUrl != null ? NetworkImage(imgUrl) : null,
+                            child: imgUrl == null
+                                ? const Icon(Icons.person, color: Colors.white)
+                                : null,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            name,
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String? _resolveImg(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http')) return raw;
+    return 'https://www.elsfm.com/$raw';
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/player_notifier.dart';
 import 'package:elsfm/data/models/player_state.dart' as player_state_model;
+import '../../lyrics/screens/lyrics_screen.dart';
 
 /// Now Playing screen — full-screen dark player matching elsfm.com mobile style
 class NowPlayingScreen extends ConsumerWidget {
@@ -172,7 +173,7 @@ class NowPlayingScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Heart / share row
+                      // Heart / lyrics / share row
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: Row(
@@ -181,6 +182,20 @@ class NowPlayingScreen extends ConsumerWidget {
                               icon: const Icon(Icons.favorite_border,
                                   color: Colors.white70),
                               onPressed: () {},
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.lyrics_outlined,
+                                  color: Colors.white70),
+                              tooltip: 'Lyrics',
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        LyricsScreen(track: currentTrack),
+                                  ),
+                                );
+                              },
                             ),
                             const Spacer(),
                             IconButton(

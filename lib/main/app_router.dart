@@ -1,5 +1,4 @@
 import 'package:go_router/go_router.dart';
-import 'package:flutter/material.dart';
 import 'app_shell.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/search/screens/search_screen.dart';
@@ -10,6 +9,7 @@ import '../features/settings/screens/settings_screen.dart';
 import '../features/playlist/screens/playlist_detail_screen.dart';
 import '../features/album/screens/album_detail_screen.dart';
 import '../features/artist/screens/artist_detail_screen.dart';
+import '../features/notifications/screens/notifications_screen.dart';
 
 /// App router configuration with all routes
 final appRouter = GoRouter(
@@ -64,6 +64,10 @@ final appRouter = GoRouter(
             final id = int.parse(state.pathParameters['id'] ?? '0');
             return ArtistDetailScreen(artistId: id);
           },
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationsScreen(),
         ),
       ],
     ),
