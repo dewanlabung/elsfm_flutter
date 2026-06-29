@@ -5,9 +5,17 @@ import '../../../config/app_config.dart';
 import '../providers/player_notifier.dart';
 import '../widgets/playback_progress.dart';
 import '../widgets/playback_controls.dart';
+import '../widgets/track_context_menu.dart';
 
-class NowPlayingScreen extends ConsumerWidget {
+class NowPlayingScreen extends ConsumerStatefulWidget {
   const NowPlayingScreen({super.key});
+
+  @override
+  ConsumerState<NowPlayingScreen> createState() => _NowPlayingScreenState();
+}
+
+class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
+  bool _isLiked = false;
 
   String? _resolveImage(String? raw) {
     if (raw == null || raw.isEmpty) return null;
@@ -15,8 +23,30 @@ class NowPlayingScreen extends ConsumerWidget {
     return '${AppConfig.webBaseUrl}/$raw';
   }
 
+  void _showOptions(BuildContext context, dynamic track) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => TrackContextMenu(
+        track: track,
+        isLiked: _isLiked,
+        onLikeTap: () => setState(() => _isLiked = !_isLiked),
+        onAddToQueue: () => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to queue')),
+        ),
+        onShare: () => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Share coming soon')),
+        ),
+        onDownload: () => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download coming soon')),
+        ),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final playerState = ref.watch(playerProvider);
     final currentTrack = playerState.currentTrack;
     final colorScheme = Theme.of(context).colorScheme;
@@ -30,16 +60,32 @@ class NowPlayingScreen extends ConsumerWidget {
           icon: const Icon(Icons.expand_more),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Now Playing',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        title: Column(
+          children: [
+            Text('Now Playing',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(letterSpacing: 1.5)),
+            if (currentTrack != null)
+              Text(
+                currentTrack.album?.name ?? '',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {},
-          ),
+          if (currentTrack != null)
+            IconButton(
+              icon: const Icon(Icons.more_vert),
+              onPressed: () => _showOptions(context, currentTrack),
+            ),
         ],
       ),
       body: currentTrack == null
@@ -50,9 +96,10 @@ class NowPlayingScreen extends ConsumerWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    colorScheme.primaryContainer.withOpacity(0.6),
+                    colorScheme.primaryContainer.withOpacity(0.7),
                     colorScheme.surface,
                   ],
+                  stops: const [0.0, 0.6],
                 ),
               ),
               child: SafeArea(
@@ -62,16 +109,16 @@ class NowPlayingScreen extends ConsumerWidget {
                     Expanded(
                       flex: 5,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 40, vertical: 24),
+                        padding: const EdgeInsets.fromLTRB(40, 16, 40, 16),
                         child: _AlbumArt(
                           imageUrl: _resolveImage(currentTrack.image),
                           trackName: currentTrack.name,
+                          isPlaying: playerState.isPlaying,
                         ),
                       ),
                     ),
 
-                    // ── Track info ────────────────────────────────────────
+                    // ── Track info + like ─────────────────────────────────
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Row(
@@ -100,7 +147,7 @@ class NowPlayingScreen extends ConsumerWidget {
                                       .bodyMedium
                                       ?.copyWith(
                                           color: colorScheme.onSurface
-                                              .withOpacity(0.7)),
+                                              .withOpacity(0.65)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -108,22 +155,30 @@ class NowPlayingScreen extends ConsumerWidget {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.favorite_border),
-                            onPressed: () {},
+                            icon: Icon(
+                              _isLiked
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              color: _isLiked ? Colors.red : null,
+                            ),
+                            onPressed: () =>
+                                setState(() => _isLiked = !_isLiked),
                           ),
                         ],
                       ),
                     ),
 
-                    // ── Progress bar ──────────────────────────────────────
+                    const SizedBox(height: 8),
+
+                    // ── Progress ──────────────────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: PlaybackProgress(),
                     ),
 
                     // ── Controls ──────────────────────────────────────────
                     const PlaybackControls(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -135,8 +190,13 @@ class NowPlayingScreen extends ConsumerWidget {
 class _AlbumArt extends StatelessWidget {
   final String? imageUrl;
   final String trackName;
+  final bool isPlaying;
 
-  const _AlbumArt({this.imageUrl, required this.trackName});
+  const _AlbumArt({
+    this.imageUrl,
+    required this.trackName,
+    required this.isPlaying,
+  });
 
   Color get _color {
     final hue =
@@ -146,17 +206,22 @@ class _AlbumArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: imageUrl != null
-            ? Image.network(
-                imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _placeholder,
-              )
-            : _placeholder,
+    return AnimatedScale(
+      scale: isPlaying ? 1.0 : 0.88,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: imageUrl != null
+              ? Image.network(
+                  imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _placeholder,
+                )
+              : _placeholder,
+        ),
       ),
     );
   }

@@ -19,7 +19,7 @@ class TrackContextMenu extends ConsumerWidget {
   final VoidCallback? onLikeTap;
 
   const TrackContextMenu({
-    Key? key,
+    super.key,
     required this.track,
     this.onShare,
     this.onDownload,
@@ -30,132 +30,132 @@ class TrackContextMenu extends ConsumerWidget {
     this.position,
     this.isLiked = false,
     this.onLikeTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actions = ref.watch(availableTrackActionsProvider);
+    final artistName = track.artists.isNotEmpty
+        ? track.artists.map((a) => a.name).join(', ')
+        : 'Unknown Artist';
 
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Track info header
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    track.title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Track info header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Row(
+              children: [
+                if (track.image != null && track.image!.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(
+                      track.image!,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _artPlaceholder(),
+                    ),
+                  )
+                else
+                  _artPlaceholder(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        track.name,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        artistName,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    track.artist?.name ?? 'Unknown Artist',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const Divider(height: 1, indent: 0, endIndent: 0),
-            // Action items
-            ...actions.map(
-              (action) => _TrackMenuItemTile(
-                action: action,
-                onTap: () => _handleAction(context, action),
-              ),
+          ),
+          const Divider(height: 1),
+          // Like action
+          _MenuTile(
+            icon: isLiked ? Icons.favorite : Icons.favorite_border,
+            label: isLiked ? 'Unlike' : 'Like',
+            color: isLiked ? Colors.red : null,
+            onTap: () {
+              onLikeTap?.call();
+              Navigator.pop(context);
+            },
+          ),
+          // Other actions
+          ...actions.map(
+            (action) => _MenuTile(
+              icon: _getIcon(action),
+              label: action.label,
+              onTap: () => _handleAction(context, action),
             ),
-            // Like action
-            _TrackMenuItemTile(
-              action: isLiked ? TrackAction.unlike : TrackAction.like,
-              onTap: () {
-                onLikeTap?.call();
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
+
+  Widget _artPlaceholder() => Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Icon(Icons.music_note, color: Colors.grey),
+      );
 
   Future<void> _handleAction(BuildContext context, TrackAction action) async {
     Navigator.pop(context);
-
     switch (action) {
       case TrackAction.share:
-        await onShare?.call();
+        onShare?.call();
       case TrackAction.download:
-        await onDownload?.call();
+        onDownload?.call();
       case TrackAction.addToPlaylist:
-        await onAddToPlaylist?.call();
+        onAddToPlaylist?.call();
       case TrackAction.addToQueue:
-        await onAddToQueue?.call();
+        onAddToQueue?.call();
       case TrackAction.viewDetails:
-        await onViewDetails?.call();
+        onViewDetails?.call();
       case TrackAction.reportIssue:
-        await onReportIssue?.call();
+        onReportIssue?.call();
       default:
         break;
     }
-  }
-}
-
-class _TrackMenuItemTile extends StatelessWidget {
-  final TrackAction action;
-  final VoidCallback onTap;
-
-  const _TrackMenuItemTile({
-    Key? key,
-    required this.action,
-    required this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                _getIcon(action),
-                size: 20,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-              const SizedBox(width: 16),
-              Text(
-                action.label,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   IconData _getIcon(TrackAction action) {
@@ -170,5 +170,29 @@ class _TrackMenuItemTile extends StatelessWidget {
       TrackAction.viewDetails => Icons.info_outline,
       TrackAction.reportIssue => Icons.flag_outlined,
     };
+  }
+}
+
+class _MenuTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final VoidCallback onTap;
+
+  const _MenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, size: 22, color: color),
+      title: Text(label, style: TextStyle(color: color)),
+      onTap: onTap,
+      dense: true,
+    );
   }
 }

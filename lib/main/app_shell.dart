@@ -177,13 +177,8 @@ class _AppDrawer extends ConsumerWidget {
                 _DrawerItem(
                   icon: Icons.download_outlined,
                   label: 'Downloads',
-                  selected: false,
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Downloads coming soon')),
-                    );
-                  },
+                  selected: selectedRoute.startsWith('/downloads'),
+                  onTap: () => onNavigate('/downloads'),
                 ),
                 const Divider(),
                 _DrawerItem(

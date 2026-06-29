@@ -10,6 +10,7 @@ import '../features/settings/screens/settings_screen.dart';
 import '../features/album/screens/album_screen.dart';
 import '../features/artist/screens/artist_screen.dart';
 import '../features/playlist/screens/playlist_screen.dart';
+import '../features/downloads/screens/downloads_screen.dart';
 
 /// App router configuration with all routes
 final appRouter = GoRouter(
@@ -61,6 +62,10 @@ final appRouter = GoRouter(
           builder: (context, state) => PlaylistScreen(
             playlistId: int.parse(state.pathParameters['id']!),
           ),
+        ),
+        GoRoute(
+          path: '/downloads',
+          builder: (context, state) => const DownloadsScreen(),
         ),
       ],
     ),
