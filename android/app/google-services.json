@@ -1,0 +1,26 @@
+{
+  "project_info": {
+    "project_number": "442813778020",
+    "project_id": "elsfm-music-app",
+    "storage_bucket": ""
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:442813778020:android:elsfm_flutter",
+        "android_client_info": {
+          "package_name": "com.example.elsfm_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "442813778020-5on215p86oalpdp4e64fkug8ql0mu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [],
+      "services": {}
+    }
+  ],
+  "configuration_version": "1"
+}

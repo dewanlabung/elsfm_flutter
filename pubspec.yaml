@@ -48,9 +48,7 @@ dependencies:
   # Logging
   logger: ^2.0.0
 
-  # Firebase & Google Sign-In
-  firebase_core: ^2.24.0
-  firebase_auth: ^4.16.0
+  # Google Sign-In (no Firebase — uses OAuth access token sent to BeMusic backend)
   google_sign_in: ^6.2.0
 
   # Biometric Authentication

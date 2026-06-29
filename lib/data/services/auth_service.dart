@@ -92,64 +92,63 @@ class AuthService {
     }
   }
 
+  /// BeMusic social auth: pass the Google access token to the callback endpoint.
+  /// SocialAuthController::loginCallback() calls
+  ///   Socialite::driver('google')->userFromToken($tokenFromApi)
+  /// and returns MobileBootstrapData (same shape as email login response).
   Future<({User user, String? token})> loginWithGoogle(
-    String idToken,
-    String email,
+    String accessToken,
   ) async {
     try {
-      final loginData = {
-        'id_token': idToken,
-        'email': email,
-        'provider': 'google',
-        'token_name': 'ELSFM Flutter App',
-      };
-
       if (kDebugMode) {
-        debugPrint('🔐 Google login attempt: POST /auth/google');
-        debugPrint('   Email: $email');
+        debugPrint('🔐 Google login: GET /auth/social/google/callback');
       }
 
-      final response = await dio.post(
-        '/auth/google',
-        data: loginData,
-        options: Options(contentType: 'application/json'),
+      final response = await dio.get(
+        '/auth/social/google/callback',
+        queryParameters: {
+          'tokenFromApi': accessToken,
+          'token_name': 'ELSFM Flutter App',
+        },
       );
 
       if (kDebugMode) {
-        debugPrint('✓ Google login response: ${response.statusCode}');
+        debugPrint('✓ Google social callback: ${response.statusCode}');
       }
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
 
-        final token = (data['accessToken'] ??
+        // MobileBootstrapData shape — token may be in user or top-level
+        final userBlock = data['user'] as Map<String, dynamic>?;
+        final token = (userBlock?['access_token'] ??
+                      userBlock?['plain_text_token'] ??
                       data['access_token'] ??
                       data['plain_text_token'] ??
                       data['token']) as String?;
+
+        final userJson = (data['user'] ?? data) as Map<String, dynamic>?;
+        if (userJson == null) {
+          throw Exception('Google login failed: No user data in response');
+        }
 
         if (token != null) {
           dio.options.headers['Authorization'] = 'Bearer $token';
         }
 
-        final userJson = data['user'] as Map<String, dynamic>?;
-        if (userJson == null) {
-          throw Exception('Google login failed: No user data in response');
-        }
-
         final user = User.fromJson(userJson);
-        if (kDebugMode) {
-          debugPrint('✓ Google login successful: user=${user.email}');
-        }
-
+        if (kDebugMode) debugPrint('✓ Google login OK: ${user.email}');
         return (user: user, token: token);
       }
 
-      throw Exception('Google login failed: Invalid response');
+      throw Exception('Google login failed: status ${response.statusCode}');
     } on DioException catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Google login error: ${e.response?.statusCode}');
+        debugPrint('   Body: ${e.response?.data}');
       }
-      throw Exception('Google login failed: ${e.message}');
+      final msg = (e.response?.data as Map?)?['message'] ?? e.message ?? 'Network error';
+      throw Exception('Google login failed: $msg');
     }
   }
 

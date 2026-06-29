@@ -93,13 +93,12 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
       final googleService = GoogleSignInService();
       final googleResult = await googleService.signInWithGoogle();
 
-      if (googleResult.idToken == null || googleResult.email == null) {
-        throw Exception('Google sign-in failed: Missing credentials');
+      if (googleResult.accessToken == null) {
+        throw Exception('Google sign-in failed: Missing access token');
       }
 
       final result = await authService.loginWithGoogle(
-        googleResult.idToken!,
-        googleResult.email!,
+        googleResult.accessToken!,
       );
 
       if (result.token != null) {

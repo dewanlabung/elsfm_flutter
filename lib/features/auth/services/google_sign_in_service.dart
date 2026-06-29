@@ -1,70 +1,49 @@
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class GoogleSignInResult {
   final String? email;
   final String? displayName;
   final String? photoUrl;
-  final String? idToken;
+  // accessToken is sent to BeMusic backend via ?tokenFromApi= param.
+  // BeMusic calls Socialite::driver('google')->userFromToken($accessToken)
+  final String? accessToken;
 
   GoogleSignInResult({
     this.email,
     this.displayName,
     this.photoUrl,
-    this.idToken,
+    this.accessToken,
   });
 }
 
-/// Google Sign-In service for authentication
+/// Google Sign-In — no Firebase required.
+/// Gets the OAuth access token and sends it to the BeMusic backend at
+/// GET /api/v1/auth/social/google/callback?tokenFromApi={accessToken}
 class GoogleSignInService {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'email',
-      'profile',
-    ],
+    scopes: ['email', 'profile'],
   );
 
-  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-
-  /// Sign in with Google and get authentication details
   Future<GoogleSignInResult> signInWithGoogle() async {
-    try {
-      final account = await _googleSignIn.signIn();
-      if (account == null) {
-        throw Exception('Google Sign-In cancelled by user');
-      }
+    final account = await _googleSignIn.signIn();
+    if (account == null) throw Exception('Google sign-in cancelled');
 
-      final auth = await account.authentication;
-      if (auth.idToken == null) {
-        throw Exception('Failed to get Google ID token');
-      }
-
-      return GoogleSignInResult(
-        email: account.email,
-        displayName: account.displayName,
-        photoUrl: account.photoUrl,
-        idToken: auth.idToken,
-      );
-    } catch (e) {
-      rethrow;
+    final auth = await account.authentication;
+    if (auth.accessToken == null) {
+      throw Exception('Failed to get Google access token');
     }
+
+    return GoogleSignInResult(
+      email: account.email,
+      displayName: account.displayName,
+      photoUrl: account.photoUrl,
+      accessToken: auth.accessToken,
+    );
   }
 
-  /// Sign out from Google
-  Future<void> signOut() async {
-    try {
-      await _googleSignIn.signOut();
-      await _firebaseAuth.signOut();
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<void> signOut() => _googleSignIn.signOut();
 
-  /// Check if user is currently signed in
-  Future<bool> isSignedIn() async {
-    return await _googleSignIn.isSignedIn();
-  }
+  Future<bool> isSignedIn() => _googleSignIn.isSignedIn();
 
-  /// Get current signed-in account
   GoogleSignInAccount? get currentUser => _googleSignIn.currentUser;
 }
