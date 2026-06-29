@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
@@ -44,6 +45,7 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
+    if (kDebugMode) debugPrint('[PlayerNotifier] setQueue: ${tracks.length} tracks, startIndex: $startIndex');
     final queueIds = tracks.map((t) => t.id).toList();
     state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex, error: null);
     try {
@@ -53,8 +55,11 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
       } else {
         await playerService.seek(Duration.zero);
       }
+      if (kDebugMode) debugPrint('[PlayerNotifier] About to call playerService.play()');
       await playerService.play();
+      if (kDebugMode) debugPrint('[PlayerNotifier] playerService.play() succeeded');
     } catch (e) {
+      if (kDebugMode) debugPrint('[PlayerNotifier] setQueue error: $e');
       state = state.copyWith(error: 'Cannot play track: $e');
     }
   }

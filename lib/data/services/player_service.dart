@@ -1,5 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/player_state.dart' as ps;
 import '../models/track.dart';
@@ -18,7 +19,12 @@ class PlayerService {
   String? _authToken;
 
   /// Update the auth token used for stream requests. Call this after login.
-  void setAuthToken(String? token) => _authToken = token;
+  void setAuthToken(String? token) {
+    _authToken = token;
+    if (kDebugMode) {
+      debugPrint('[PlayerService] Auth token updated: ${token != null ? '${token.substring(0, 20)}...' : 'null'}');
+    }
+  }
 
   /// Builds the audio source for a track.
   ///
@@ -32,6 +38,10 @@ class PlayerService {
 
     // Option 1: resolved storage URL (set in Track.fromJson from the API's src field)
     if (src.startsWith('https://') || src.startsWith('http://')) {
+      if (kDebugMode) {
+        debugPrint('[PlayerService] Using direct URL: $src');
+        debugPrint('[PlayerService] Auth headers: $_authHeaders');
+      }
       return AudioSource.uri(Uri.parse(src), headers: _authHeaders);
     }
 
@@ -41,6 +51,10 @@ class PlayerService {
     final downloadUrl = _authToken != null
         ? '$base/tracks/${track.id}/download?token=$_authToken'
         : '$base/tracks/${track.id}/download';
+    if (kDebugMode) {
+      debugPrint('[PlayerService] Using /download endpoint: $downloadUrl');
+      debugPrint('[PlayerService] Auth headers: $_authHeaders');
+    }
     return AudioSource.uri(Uri.parse(downloadUrl), headers: _authHeaders);
   }
 
@@ -69,25 +83,45 @@ class PlayerService {
   }
 
   Future<void> setQueue(List<Track> tracks) async {
+    if (kDebugMode) debugPrint('[PlayerService] setQueue called with ${tracks.length} tracks');
     _tracksList = List<Track>.from(tracks);
     await _playlist.clear();
     for (final track in tracks) {
+      if (kDebugMode) debugPrint('[PlayerService] Adding track: ${track.title} (id: ${track.id}, src: ${track.src})');
       await _playlist.add(_buildSource(track));
     }
+    if (kDebugMode) debugPrint('[PlayerService] Queue setup complete');
   }
 
   /// Returns an unmodifiable view of the current queue.
   List<Track> get queue => List.unmodifiable(_tracksList);
 
-  Future<void> play() => _audioPlayer.play();
+  Future<void> play() async {
+    if (kDebugMode) debugPrint('[PlayerService] play() called');
+    try {
+      await _audioPlayer.play();
+      if (kDebugMode) debugPrint('[PlayerService] play() succeeded, state: ${_audioPlayer.playerState}');
+    } catch (e) {
+      if (kDebugMode) debugPrint('[PlayerService] play() failed: $e');
+      rethrow;
+    }
+  }
+
   Future<void> pause() async {
     _sleepTimer.cancelTimer();
+    if (kDebugMode) debugPrint('[PlayerService] pause() called');
     await _audioPlayer.pause();
   }
 
-  Future<void> stop() => _audioPlayer.stop();
+  Future<void> stop() async {
+    if (kDebugMode) debugPrint('[PlayerService] stop() called');
+    await _audioPlayer.stop();
+  }
 
-  Future<void> seek(Duration position) => _audioPlayer.seek(position);
+  Future<void> seek(Duration position) async {
+    if (kDebugMode) debugPrint('[PlayerService] seek() to ${position.inSeconds}s');
+    await _audioPlayer.seek(position);
+  }
   Future<void> previous() => _audioPlayer.seekToPrevious();
   Future<void> next() => _audioPlayer.seekToNext();
 
