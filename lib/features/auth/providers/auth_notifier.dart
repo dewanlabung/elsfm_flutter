@@ -6,21 +6,17 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../data/providers/http_client_provider.dart';
 import '../../../data/services/auth_service.dart';
 import '../models/auth_state.dart';
-import '../services/biometric_auth_service.dart';
-import '../services/google_sign_in_service.dart';
 
 const _tokenKey = 'auth_token';
 
 class AuthNotifier extends Notifier<AuthStateData> {
   late final AuthService _authService;
   late final FlutterSecureStorage _secureStorage;
-  late final BiometricAuthService _biometricService;
 
   @override
   AuthStateData build() {
     _authService = ref.watch(authServiceProvider);
     _secureStorage = ref.watch(secureStorageProvider);
-    _biometricService = BiometricAuthService(_secureStorage);
     // Kick off async init without blocking the synchronous build.
     Future.microtask(_initAuth);
     return AuthStateData.unauthenticated();
@@ -29,21 +25,7 @@ class AuthNotifier extends Notifier<AuthStateData> {
   Future<void> _initAuth() async {
     state = state.copyWith(state: AuthState.authenticating);
 
-    // 1. Try biometric login first if enabled.
-    try {
-      final biometricToken = await _biometricService.authenticateWithBiometric();
-      if (biometricToken != null) {
-        _authService.setToken(biometricToken);
-        final user = await _authService.getCurrentUser();
-        state = AuthStateData.authenticated(user);
-        return;
-      }
-    } catch (e) {
-      // Biometric failed — fall through to saved token.
-      if (kDebugMode) debugPrint('Biometric init error: $e');
-    }
-
-    // 2. Try saved token (do not delete it on network errors).
+    // Try saved token (do not delete it on network errors).
     final savedToken = await _secureStorage.read(key: _tokenKey);
     if (savedToken != null) {
       try {
@@ -68,7 +50,7 @@ class AuthNotifier extends Notifier<AuthStateData> {
       }
     }
 
-    // 3. No saved token — show login screen.
+    // No saved token — show login screen.
     state = AuthStateData.unauthenticated();
   }
 
