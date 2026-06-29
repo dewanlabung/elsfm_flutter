@@ -4,58 +4,76 @@ import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
 import '../../../data/models/track.dart';
 import '../../../data/services/player_service.dart';
+import '../../../data/providers/http_client_provider.dart';
 import '../../../data/providers/api_client_provider.dart';
+import '../../auth/providers/auth_notifier.dart';
+import '../../auth/models/auth_state.dart';
 
-class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
-  final PlayerService playerService;
-  Ref? _ref;
+class PlayerNotifier extends Notifier<player_models.PlayerState> {
+  late PlayerService _playerService;
 
-  PlayerNotifier(this.playerService, [this._ref]) : super(const player_models.PlayerState(queue: [])) {
-    _initListeners();
+  @override
+  player_models.PlayerState build() {
+    final playerServiceAsync = ref.watch(playerServiceProvider);
+
+    return playerServiceAsync.when(
+      data: (service) {
+        _playerService = service;
+        _initListeners(service);
+        return const player_models.PlayerState(queue: []);
+      },
+      loading: () {
+        _playerService = _stubService;
+        return const player_models.PlayerState(queue: []);
+      },
+      error: (_, __) {
+        _playerService = _stubService;
+        return const player_models.PlayerState(queue: []);
+      },
+    );
   }
 
-  void _initListeners() {
-    playerService.currentIndexStream.listen((index) {
+  void _initListeners(PlayerService service) {
+    service.currentIndexStream.listen((index) {
       state = state.copyWith(currentIndex: index);
     });
 
-    playerService.positionStream.listen((position) {
+    service.positionStream.listen((position) {
       state = state.copyWith(position: position);
     });
 
-    playerService.durationStream.listen((duration) {
+    service.durationStream.listen((duration) {
       state = state.copyWith(duration: duration ?? Duration.zero);
     });
 
-    playerService.playerStateStream.listen((playerState) {
+    service.playerStateStream.listen((playerState) {
       state = state.copyWith(
         isPlaying: playerState.isPlaying,
         isLoading: playerState.isLoading,
       );
     });
 
-    playerService.errorStream.listen((error) {
-      if (error != null) {
-        state = state.copyWith(error: error);
-      } else {
-        state = state.copyWith(error: null);
-      }
+    service.errorStream.listen((error) {
+      state = state.copyWith(error: error);
     });
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
     final queueIds = tracks.map((t) => t.id).toList();
     state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex);
-    await playerService.setQueue(tracks);
-    await playerService.seek(Duration.zero);
+    await _playerService.setQueue(tracks);
+    await _playerService.seek(Duration.zero);
     if (startIndex > 0) {
-      await playerService.audioPlayer.seek(Duration.zero, index: startIndex);
+      await _playerService.audioPlayer.seek(Duration.zero, index: startIndex);
     }
-    await playerService.play();
-    // Log play to backend after starting
+    await _playerService.play();
+
     final trackId = tracks.isNotEmpty ? tracks[startIndex].id : null;
     if (trackId != null) {
-      _ref?.read(apiClientProvider).logTrackPlay(trackId);
+      // Fire-and-forget: log the play using the async dioProvider.
+      ref.read(dioProvider.future).then((dio) {
+        apiClientFromDio(dio).logTrackPlay(trackId);
+      }).catchError((_) {});
     }
   }
 
@@ -65,7 +83,7 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   Future<void> play() async {
     state = state.copyWith(isLoading: true);
     try {
-      await playerService.play();
+      await _playerService.play();
       state = state.copyWith(isPlaying: true, error: null);
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -75,7 +93,7 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   }
 
   Future<void> pause() async {
-    await playerService.pause();
+    await _playerService.pause();
     state = state.copyWith(isPlaying: false);
   }
 
@@ -88,21 +106,21 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   }
 
   Future<void> seek(Duration position) async {
-    await playerService.seek(position);
+    await _playerService.seek(position);
   }
 
   Future<void> next() async {
     if (state.hasNext) {
-      await playerService.next();
+      await _playerService.next();
     } else if (state.repeatMode == player_models.RepeatMode.all) {
-      await playerService.audioPlayer.seek(Duration.zero, index: 0);
+      await _playerService.audioPlayer.seek(Duration.zero, index: 0);
       await play();
     }
   }
 
   Future<void> previous() async {
     if (state.hasPrevious) {
-      await playerService.previous();
+      await _playerService.previous();
     }
   }
 
@@ -119,38 +137,35 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
       player_models.RepeatMode.one => LoopMode.one,
       player_models.RepeatMode.all => LoopMode.all,
     };
-    await playerService.setLoopMode(loopMode);
+    await _playerService.setLoopMode(loopMode);
   }
 
   void toggleShuffle() {
     final newShuffled = !state.isShuffled;
     state = state.copyWith(isShuffled: newShuffled);
-    playerService.setShuffle(newShuffled);
+    _playerService.setShuffle(newShuffled);
   }
 
   Future<void> setPlaybackRate(double rate) async {
-    await playerService.setPlaybackRate(rate);
+    await _playerService.setPlaybackRate(rate);
     state = state.copyWith(playbackRate: rate);
-  }
-
-  @override
-  Future<void> dispose() async {
-    await playerService.dispose();
-    super.dispose();
   }
 }
 
 final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
+  // Watch auth notifier state to trigger re-initialization on login/logout.
+  final authState = ref.watch(authNotifierProvider);
   final playerService = PlayerService();
 
-  // Set auth token BEFORE init so it is present when audio sources are loaded
-  try {
-    const storage = FlutterSecureStorage();
-    final token = await storage.read(key: 'auth_token');
-    if (token != null) {
-      playerService.setAuthToken(token);
-    }
-  } catch (_) {}
+  if (authState.state == AuthState.authenticated) {
+    try {
+      const storage = FlutterSecureStorage();
+      final token = await storage.read(key: 'auth_token');
+      if (token != null) {
+        playerService.setAuthToken(token);
+      }
+    } catch (_) {}
+  }
 
   await playerService.init();
   ref.onDispose(() => playerService.dispose());
@@ -161,11 +176,7 @@ final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
 // never leaks unauthenticated requests.
 final _stubService = PlayerService();
 
-final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.PlayerState>((ref) {
-  final playerServiceAsync = ref.watch(playerServiceProvider);
-  return playerServiceAsync.when(
-    data: (playerService) => PlayerNotifier(playerService, ref),
-    loading: () => PlayerNotifier(_stubService),
-    error: (_, __) => PlayerNotifier(_stubService),
-  );
-});
+final playerProvider =
+    NotifierProvider<PlayerNotifier, player_models.PlayerState>(
+  PlayerNotifier.new,
+);

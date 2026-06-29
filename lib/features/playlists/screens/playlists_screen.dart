@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:elsfm/data/models/playlist_v2.dart';
 import '../providers/playlist_provider.dart';
+import 'playlist_detail_screen.dart';
 
 /// Playlists main screen
 class PlaylistsScreen extends ConsumerWidget {
@@ -74,7 +75,6 @@ class PlaylistsScreen extends ConsumerWidget {
                 title: Text(playlist.name),
                 subtitle: Text('${playlist.trackCount} songs'),
                 onTap: () {
-                  // Navigate to playlist detail
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -224,21 +224,6 @@ class PlaylistsScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Playlist detail screen stub
-class PlaylistDetailScreen extends StatelessWidget {
-  final int playlistId;
-
-  const PlaylistDetailScreen({required this.playlistId, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Playlist')),
-      body: const Center(child: Text('Playlist detail coming soon')),
     );
   }
 }

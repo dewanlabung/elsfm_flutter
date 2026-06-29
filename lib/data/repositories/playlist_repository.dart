@@ -1,21 +1,22 @@
 import 'package:dio/dio.dart';
 import '../models/playlist_v2.dart';
+import '../models/app_error.dart';
+import '../services/hive_service.dart';
 
-/// Repository for playlist CRUD operations
+/// Repository for playlist CRUD operations with Hive read-through cache.
 class PlaylistRepository {
   final Dio dio;
 
   PlaylistRepository({required this.dio});
 
-  /// Create a new playlist
-  /// Authorization: User must be authenticated
+  /// Create a new playlist.
   Future<PlaylistV2> createPlaylist({
     required String name,
     String? description,
     bool isCollaborative = false,
   }) async {
     try {
-      final response = await dio.post(
+      final response = await dio.post<Map<String, dynamic>>(
         '/playlists',
         data: {
           'name': name,
@@ -23,49 +24,68 @@ class PlaylistRepository {
           'is_collaborative': isCollaborative,
         },
       );
-
-      return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
-    } on DioException {
-      rethrow;
+      final playlist = PlaylistV2.fromJson(response.data!);
+      // Invalidate the user playlist list cache on mutation.
+      await HiveService.getPlaylistCache().invalidate('user_playlists');
+      return playlist;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Get all playlists for current user
-  /// Authorization: User must be authenticated
+  /// Get all playlists for the current user.
   Future<List<PlaylistV2>> getUserPlaylists({
     int page = 1,
     int limit = 50,
   }) async {
-    try {
-      final response = await dio.get(
-        '/playlists',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-        },
-      );
+    const cacheKey = 'user_playlists';
+    final cache = HiveService.getPlaylistCache();
 
-      return ((response.data as List?) ?? [])
+    final cachedList = cache.getList(cacheKey);
+    if (cachedList != null) {
+      return cachedList.map(PlaylistV2.fromJson).toList();
+    }
+
+    try {
+      final response = await dio.get<dynamic>(
+        '/playlists',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+      final items = ((response.data as List?) ?? [])
           .map((e) => PlaylistV2.fromJson(e as Map<String, dynamic>))
           .toList();
-    } on DioException {
-      rethrow;
+      await cache.putList(
+        cacheKey,
+        items.map((p) => p.toJson()).toList(),
+      );
+      return items;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Get a specific playlist by ID
-  /// Authorization: User must have access (owner or shared)
+  /// Get a specific playlist by ID.
   Future<PlaylistV2> getPlaylist(int playlistId) async {
+    final cacheKey = 'playlist_$playlistId';
+    final cache = HiveService.getPlaylistCache();
+
+    final cached = cache.get(cacheKey);
+    if (cached != null) {
+      return PlaylistV2.fromJson(cached);
+    }
+
     try {
-      final response = await dio.get('/playlists/$playlistId');
-      return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
-    } on DioException {
-      rethrow;
+      final response =
+          await dio.get<Map<String, dynamic>>('/playlists/$playlistId');
+      final playlist = PlaylistV2.fromJson(response.data!);
+      await cache.put(cacheKey, response.data!);
+      return playlist;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Update playlist metadata (name, description, artwork)
-  /// Authorization: User must be owner
+  /// Update playlist metadata.
   Future<PlaylistV2> updatePlaylist({
     required int playlistId,
     String? name,
@@ -80,102 +100,102 @@ class PlaylistRepository {
       if (artwork != null) data['artwork'] = artwork;
       if (isCollaborative != null) data['is_collaborative'] = isCollaborative;
 
-      final response = await dio.put(
+      final response = await dio.put<Map<String, dynamic>>(
         '/playlists/$playlistId',
         data: data,
       );
-
-      return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
-    } on DioException {
-      rethrow;
+      final playlist = PlaylistV2.fromJson(response.data!);
+      // Invalidate the individual and list caches after mutation.
+      final cache = HiveService.getPlaylistCache();
+      await cache.invalidate('playlist_$playlistId');
+      await cache.invalidate('user_playlists');
+      return playlist;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Delete a playlist (soft delete - recoverable)
-  /// Authorization: User must be owner
+  /// Delete a playlist (soft delete — recoverable).
   Future<void> deletePlaylist(int playlistId) async {
     try {
-      await dio.delete('/playlists/$playlistId');
-    } on DioException {
-      rethrow;
+      await dio.delete<void>('/playlists/$playlistId');
+      final cache = HiveService.getPlaylistCache();
+      await cache.invalidate('playlist_$playlistId');
+      await cache.invalidate('user_playlists');
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Add a song to a playlist
-  /// Authorization: User must be owner/collaborator
+  /// Add a song to a playlist.
   Future<PlaylistV2> addSongToPlaylist({
     required int playlistId,
     required int trackId,
   }) async {
     try {
-      final response = await dio.post(
+      final response = await dio.post<Map<String, dynamic>>(
         '/playlists/$playlistId/songs',
-        data: {
-          'track_id': trackId,
-        },
+        data: {'track_id': trackId},
       );
-
-      return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
-    } on DioException {
-      rethrow;
+      final playlist = PlaylistV2.fromJson(response.data!);
+      await HiveService.getPlaylistCache().invalidate('playlist_$playlistId');
+      return playlist;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Remove a song from a playlist
-  /// Authorization: User must be owner/collaborator
+  /// Remove a song from a playlist.
   Future<PlaylistV2> removeSongFromPlaylist({
     required int playlistId,
     required int trackId,
   }) async {
     try {
-      final response = await dio.delete(
+      final response = await dio.delete<Map<String, dynamic>>(
         '/playlists/$playlistId/songs/$trackId',
       );
-
-      return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
-    } on DioException {
-      rethrow;
+      final playlist = PlaylistV2.fromJson(response.data!);
+      await HiveService.getPlaylistCache().invalidate('playlist_$playlistId');
+      return playlist;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Reorder a song in a playlist
-  /// Authorization: User must be owner/collaborator
+  /// Reorder a song in a playlist.
   Future<PlaylistV2> reorderSongInPlaylist({
     required int playlistId,
     required int trackId,
     required int newPosition,
   }) async {
     try {
-      final response = await dio.patch(
+      final response = await dio.patch<Map<String, dynamic>>(
         '/playlists/$playlistId/songs/$trackId',
-        data: {
-          'position': newPosition,
-        },
+        data: {'position': newPosition},
       );
-
-      return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
-    } on DioException {
-      rethrow;
+      final playlist = PlaylistV2.fromJson(response.data!);
+      await HiveService.getPlaylistCache().invalidate('playlist_$playlistId');
+      return playlist;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 
-  /// Bulk add songs to playlist
-  /// Authorization: User must be owner/collaborator
+  /// Bulk add songs to a playlist.
   Future<PlaylistV2> addSongsToPlaylist({
     required int playlistId,
     required List<int> trackIds,
   }) async {
     try {
-      final response = await dio.post(
+      final response = await dio.post<Map<String, dynamic>>(
         '/playlists/$playlistId/songs/bulk',
-        data: {
-          'track_ids': trackIds,
-        },
+        data: {'track_ids': trackIds},
       );
-
-      return PlaylistV2.fromJson(response.data as Map<String, dynamic>);
-    } on DioException {
-      rethrow;
+      final playlist = PlaylistV2.fromJson(response.data!);
+      await HiveService.getPlaylistCache().invalidate('playlist_$playlistId');
+      return playlist;
+    } catch (e) {
+      throw mapToAppError(e);
     }
   }
 }

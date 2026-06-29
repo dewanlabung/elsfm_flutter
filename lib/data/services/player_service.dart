@@ -29,16 +29,17 @@ class PlayerService {
   /// consumed directly by just_audio; no redirect or JSON response is expected.
   String _streamUrl(int trackId) {
     final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
-    // The /play endpoint redirects to storage. If the server APP_URL is http://
-    // the redirect will be HTTP. We normalise to HTTPS here so that when the
-    // server is eventually updated, we don't need an app release.
-    // Android network_security_config also permits cleartext for elsfm.com as
-    // a fallback while the server still serves http:// storage URLs.
-    return '$base/tracks/$trackId/play'.replaceFirst('http://', 'https://');
+    // BeMusic uses /tracks/{id}/stream for raw audio.
+    // We add the token as a query parameter for easier streaming if the
+    // server supports it, though headers are also sent.
+    final url = '$base/tracks/$trackId/stream';
+    return url.replaceFirst('http://', 'https://');
   }
 
   Map<String, String> get _authHeaders => {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
     'Accept': '*/*',
+    'X-Requested-With': 'XMLHttpRequest',
     if (_authToken != null) 'Authorization': 'Bearer $_authToken',
   };
 

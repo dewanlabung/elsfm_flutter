@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import '../data/models/user.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/player/widgets/mini_player.dart';
 import '../features/auth/providers/auth_notifier.dart';
-import '../features/auth/models/auth_state.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -99,7 +99,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 // ── Side drawer ───────────────────────────────────────────────────────────────
 
 class _AppDrawer extends ConsumerWidget {
-  final dynamic user;
+  final User? user;
   final String selectedRoute;
   final void Function(String route) onNavigate;
 
@@ -141,9 +141,9 @@ class _AppDrawer extends ConsumerWidget {
                 ),
                 if (user?.email != null)
                   Text(
-                    user!.email!,
+                    user!.email,
                     style: TextStyle(
-                      color: colorScheme.onPrimary.withOpacity(0.75),
+                      color: colorScheme.onPrimary.withValues(alpha: 0.75),
                       fontSize: 12,
                     ),
                   ),
@@ -237,7 +237,7 @@ class _DrawerItem extends StatelessWidget {
       title: Text(label),
       selected: selected,
       selectedTileColor:
-          Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
       selectedColor: Theme.of(context).colorScheme.primary,
       onTap: onTap,
     );

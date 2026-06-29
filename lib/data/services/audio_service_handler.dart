@@ -63,7 +63,9 @@ class AudioServiceHandler extends BaseAudioHandler {
         artist: track.artists.isNotEmpty ? track.artists.map((a) => a.name).join(', ') : 'Unknown',
         album: track.album?.name ?? 'Unknown Album',
         duration: track.duration,
-        artUri: track.album?.image != null ? Uri.parse(track.album!.image!) : null,
+        artUri: (track.album?.image != null && track.album!.image!.isNotEmpty) 
+            ? Uri.parse(track.album!.image!) 
+            : null,
       );
       this.mediaItem.add(mediaItem);
     }

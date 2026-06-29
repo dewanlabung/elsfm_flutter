@@ -16,9 +16,9 @@ class LibraryService {
     }
   }
 
-  Future<List<Track>> getFavorites() async {
+  Future<List<Track>> getFavorites({int? userId}) async {
     try {
-      return await repository.getFavorites();
+      return await repository.getFavorites(userId: userId);
     } catch (e) {
       throw LibraryException('Failed to load favorites: $e');
     }

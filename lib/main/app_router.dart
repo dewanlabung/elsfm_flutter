@@ -6,7 +6,7 @@ import '../features/library/screens/library_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 import '../features/player/screens/now_playing_screen.dart';
 import '../features/settings/screens/settings_screen.dart';
-import '../features/playlist/screens/playlist_detail_screen.dart';
+import '../features/playlists/screens/playlist_detail_screen.dart';
 import '../features/album/screens/album_detail_screen.dart';
 import '../features/artist/screens/artist_detail_screen.dart';
 import '../features/notifications/screens/notifications_screen.dart';

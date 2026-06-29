@@ -4,15 +4,15 @@ import 'package:elsfm/data/repositories/search_repository.dart';
 import '../services/search_service.dart';
 import '../models/search_state.dart';
 
-/// Search repository provider
-final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  final dio = ref.watch(dioProvider).requireValue;
+/// Search repository provider — waits for Dio to be ready.
+final searchRepositoryProvider = FutureProvider<SearchRepository>((ref) async {
+  final dio = await ref.watch(dioProvider.future);
   return SearchRepository(dio: dio);
 });
 
-/// Search service provider
-final searchServiceProvider = Provider<SearchService>((ref) {
-  final repository = ref.watch(searchRepositoryProvider);
+/// Search service provider — waits for the repository to be ready.
+final searchServiceProvider = FutureProvider<SearchService>((ref) async {
+  final repository = await ref.watch(searchRepositoryProvider.future);
   return SearchService(repository: repository);
 });
 
@@ -21,8 +21,6 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Debounced search state notifier
 class DebouncedSearchNotifier extends AsyncNotifier<SearchState> {
-  SearchService? _searchService;
-
   @override
   Future<SearchState> build() async {
     return SearchState.initial();
@@ -37,8 +35,8 @@ class DebouncedSearchNotifier extends AsyncNotifier<SearchState> {
     state = const AsyncValue.loading();
 
     try {
-      _searchService ??= ref.read(searchServiceProvider);
-      final results = await _searchService!.search(query: query);
+      final searchService = await ref.read(searchServiceProvider.future);
+      final results = await searchService.search(query: query);
 
       state = AsyncValue.data(
         SearchState(
@@ -64,8 +62,8 @@ class DebouncedSearchNotifier extends AsyncNotifier<SearchState> {
     state = const AsyncValue.loading();
 
     try {
-      _searchService ??= ref.read(searchServiceProvider);
-      final trending = await _searchService!.getTrending();
+      final searchService = await ref.read(searchServiceProvider.future);
+      final trending = await searchService.getTrending();
 
       state = AsyncValue.data(
         SearchState(
@@ -94,7 +92,7 @@ class DebouncedSearchNotifier extends AsyncNotifier<SearchState> {
 
 /// Debounced search state provider
 final debouncedSearchProvider = AsyncNotifierProvider<DebouncedSearchNotifier, SearchState>(
-  () => DebouncedSearchNotifier(),
+  DebouncedSearchNotifier.new,
 );
 
 /// Recently searched queries provider (local storage)
@@ -108,7 +106,7 @@ class RecentSearchesNotifier extends StateNotifier<List<String>> {
   void addSearch(String query) {
     if (query.isEmpty) return;
 
-    // Remove if exists, then add to front
+    // Remove if exists, then add to front.
     state = [
       query,
       ...state.where((q) => q != query).take(9),

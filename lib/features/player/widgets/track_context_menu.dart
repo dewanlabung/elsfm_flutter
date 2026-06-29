@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../data/models/track.dart';
-import '../../../data/providers/api_client_provider.dart';
+import '../../library/providers/library_provider.dart';
 import '../../player/providers/player_notifier.dart';
 
 String _resolveImg(String? img) {
@@ -54,7 +54,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.4),
+              color: Colors.grey.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -97,7 +97,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
-                                .withOpacity(0.6),
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                     ],
@@ -109,8 +109,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
           const Divider(height: 1),
           // actions
           _item(Icons.queue_music, 'Add to queue', () {
-            final notifier = ref.read(playerProvider.notifier);
-            notifier.playTrack(track);
+            ref.read(playerProvider.notifier).playTrack(track);
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Added to queue')),
@@ -159,7 +158,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
   Widget _imgFallback() => Container(
         width: 48,
         height: 48,
-        color: Colors.grey.withOpacity(0.2),
+        color: Colors.grey.withValues(alpha: 0.2),
         child: const Icon(Icons.music_note, color: Colors.grey),
       );
 
@@ -175,16 +174,24 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
   Future<void> _toggleLike(BuildContext ctx) async {
     setState(() => _likeLoading = true);
     try {
-      final api = ref.read(apiClientProvider);
-      final endpoint = _isLiked
-          ? '/users/me/remove-from-library'
-          : '/users/me/add-to-library';
-      await api.dio.post(endpoint, data: {
-        'likeables': [
-          {'likeable_id': widget.track.id, 'likeable_type': 'track'}
-        ],
-      });
+      final repository =
+          await ref.read(libraryRepositoryProvider.future);
+      if (_isLiked) {
+        await repository.removeFavorite(widget.track.id);
+      } else {
+        await repository.addFavorite(widget.track.id);
+      }
+
       setState(() => _isLiked = !_isLiked);
+      ref.invalidate(favoritesProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(
+              content:
+                  Text(_isLiked ? 'Added to library' : 'Removed from library')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
@@ -224,7 +231,7 @@ class _AddToPlaylistSheet extends ConsumerWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.4),
+              color: Colors.grey.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

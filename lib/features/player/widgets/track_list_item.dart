@@ -10,31 +10,22 @@ class TrackListItem extends ConsumerWidget {
   final bool isLiked;
   final VoidCallback? onTap;
   final VoidCallback? onLikeTap;
-  final VoidCallback? onShare;
-  final VoidCallback? onDownload;
-  final VoidCallback? onAddToPlaylist;
-  final VoidCallback? onAddToQueue;
-  final VoidCallback? onViewDetails;
-  final VoidCallback? onReportIssue;
 
   const TrackListItem({
-    Key? key,
+    super.key,
     required this.track,
     this.index,
     this.isPlaying = false,
     this.isLiked = false,
     this.onTap,
     this.onLikeTap,
-    this.onShare,
-    this.onDownload,
-    this.onAddToPlaylist,
-    this.onAddToQueue,
-    this.onViewDetails,
-    this.onReportIssue,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final artistNames = track.artists.map((a) => a.name).join(', ');
+    final imageUrl = track.image;
+
     return Material(
       child: InkWell(
         onTap: onTap,
@@ -61,56 +52,42 @@ class TrackListItem extends ConsumerWidget {
                 )
               else
                 const SizedBox(width: 8),
-              // Track artwork (if available)
-              if (track.artwork != null)
-                Container(
-                  width: 40,
-                  height: 40,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    image: DecorationImage(
-                      image: NetworkImage(track.artwork!),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  width: 40,
-                  height: 40,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: Colors.grey[300],
-                  ),
-                  child: Icon(
-                    Icons.music_note,
-                    size: 20,
-                    color: Colors.grey[600],
-                  ),
+              // Track artwork
+              Container(
+                width: 40,
+                height: 40,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey[300],
+                  image: imageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(imageUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
+                child: imageUrl == null
+                    ? Icon(Icons.music_note, size: 20, color: Colors.grey[600])
+                    : null,
+              ),
               // Track info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      track.title,
+                      track.name,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isPlaying
-                                ? Theme.of(context).primaryColor
-                                : null,
-                            fontWeight: isPlaying
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                            color: isPlaying ? Theme.of(context).primaryColor : null,
+                            fontWeight: isPlaying ? FontWeight.w600 : FontWeight.normal,
                           ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      track.artist?.name ?? 'Unknown Artist',
+                      artistNames.isNotEmpty ? artistNames : 'Unknown Artist',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey,
                           ),
@@ -121,41 +98,27 @@ class TrackListItem extends ConsumerWidget {
                 ),
               ),
               // Duration
-              if (track.duration != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    _formatDuration(track.duration!),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  _formatDuration(track.duration),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Colors.grey),
                 ),
+              ),
               // Like button
               IconButton(
                 icon: Icon(
                   isLiked ? Icons.favorite : Icons.favorite_border,
-                  color: isLiked
-                      ? Theme.of(context).primaryColor
-                      : Colors.grey,
+                  color: isLiked ? Theme.of(context).primaryColor : Colors.grey,
                 ),
                 onPressed: onLikeTap,
                 iconSize: 20,
               ),
               // Menu button
-              TrackMenuButton(
-                track: track,
-                isLiked: isLiked,
-                icon: Icons.more_vert,
-                size: 20,
-                onLikeTap: onLikeTap,
-                onShare: onShare,
-                onDownload: onDownload,
-                onAddToPlaylist: onAddToPlaylist,
-                onAddToQueue: onAddToQueue,
-                onViewDetails: onViewDetails,
-                onReportIssue: onReportIssue,
-              ),
+              TrackMenuButton(track: track, size: 20),
             ],
           ),
         ),
@@ -163,9 +126,9 @@ class TrackListItem extends ConsumerWidget {
     );
   }
 
-  String _formatDuration(int seconds) {
-    final minutes = seconds ~/ 60;
-    final secs = seconds % 60;
-    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  String _formatDuration(Duration d) {
+    final m = d.inSeconds ~/ 60;
+    final s = d.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }

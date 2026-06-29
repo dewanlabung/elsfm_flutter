@@ -1,3 +1,4 @@
+export 'app_error.dart';
 export 'backend_response.dart';
 export 'user.dart';
 export 'artist.dart';

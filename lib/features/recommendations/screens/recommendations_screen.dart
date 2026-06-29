@@ -1,3 +1,4 @@
+import 'package:elsfm/data/models/recommendation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/recommendation_provider.dart';
@@ -88,7 +89,7 @@ class RecommendationsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecommendationCard(BuildContext context, dynamic recommendation) {
+  Widget _buildRecommendationCard(BuildContext context, Recommendation recommendation) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
@@ -111,7 +112,7 @@ class RecommendationsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMoodCard(BuildContext context, dynamic mood) {
+  Widget _buildMoodCard(BuildContext context, Recommendation mood) {
     return GestureDetector(
       onTap: () {
         // Open mood playlist

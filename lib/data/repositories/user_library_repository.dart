@@ -22,31 +22,36 @@ class UserLibraryRepository {
 
   /// Get user's favorite songs
   /// Authorization: User must be authenticated
-  /// Endpoint: GET /api/v1/user/library/tracks
+  /// Endpoint: GET /api/v1/users/{userId}/liked-tracks
   Future<List<Track>> getFavorites({
+    int? userId,
     int page = 1,
     int limit = 50,
-    String sortBy = 'added_at', // 'added_at' or 'name'
   }) async {
     try {
+      // BeMusic typically uses /users/{id}/liked-tracks
+      final path = userId != null ? '/users/$userId/liked-tracks' : '/users/me/liked-tracks';
+      
       final response = await dio.get(
-        '/user/library/tracks',
+        path,
         queryParameters: {
           'page': page,
-          'limit': limit,
-          'sort_by': sortBy,
+          'per_page': limit,
         },
       );
 
-      // Handle paginated response format
       final data = response.data;
+      if (data is Map<String, dynamic>) {
+        // Handle BeMusic pagination wrapper
+        final list = (data['pagination']?['data'] ?? data['data']) as List?;
+        if (list != null) {
+          return list
+              .map((e) => Track.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
       if (data is List) {
         return data
-            .map((e) => Track.fromJson(e as Map<String, dynamic>))
-            .toList();
-      } else if (data is Map<String, dynamic>) {
-        final tracks = (data['data'] as List?) ?? [];
-        return tracks
             .map((e) => Track.fromJson(e as Map<String, dynamic>))
             .toList();
       }
@@ -58,11 +63,16 @@ class UserLibraryRepository {
 
   /// Add a song to favorites
   /// Authorization: User must be authenticated
-  /// Endpoint: POST /api/v1/user/library/tracks/{trackId}/favorite
+  /// Endpoint: POST /api/v1/users/me/add-to-library
   Future<void> addFavorite(int trackId) async {
     try {
       await dio.post(
-        '/user/library/tracks/$trackId/favorite',
+        '/users/me/add-to-library',
+        data: {
+          'likeables': [
+            {'likeable_id': trackId, 'likeable_type': 'track'}
+          ],
+        },
       );
     } on DioException {
       rethrow;
@@ -71,11 +81,16 @@ class UserLibraryRepository {
 
   /// Remove a song from favorites
   /// Authorization: User must be authenticated
-  /// Endpoint: DELETE /api/v1/user/library/tracks/{trackId}/favorite
+  /// Endpoint: POST /api/v1/users/me/remove-from-library
   Future<void> removeFavorite(int trackId) async {
     try {
-      await dio.delete(
-        '/user/library/tracks/$trackId/favorite',
+      await dio.post(
+        '/users/me/remove-from-library',
+        data: {
+          'likeables': [
+            {'likeable_id': trackId, 'likeable_type': 'track'}
+          ],
+        },
       );
     } on DioException {
       rethrow;
