@@ -29,7 +29,12 @@ class PlayerService {
   /// consumed directly by just_audio; no redirect or JSON response is expected.
   String _streamUrl(int trackId) {
     final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
-    return '$base/tracks/$trackId/play';
+    // The /play endpoint redirects to storage. If the server APP_URL is http://
+    // the redirect will be HTTP. We normalise to HTTPS here so that when the
+    // server is eventually updated, we don't need an app release.
+    // Android network_security_config also permits cleartext for elsfm.com as
+    // a fallback while the server still serves http:// storage URLs.
+    return '$base/tracks/$trackId/play'.replaceFirst('http://', 'https://');
   }
 
   Map<String, String> get _authHeaders => {

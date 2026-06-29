@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="false">
+    <!--
+        Storage files redirect to http:// (server APP_URL=http on production).
+        Allow cleartext only for elsfm.com so ExoPlayer can follow:
+        GET /api/v1/tracks/{id}/play → 302 → http://elsfm.com/public/storage/...mp3
+    -->
+    <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">elsfm.com</domain>
     </domain-config>
     <base-config cleartextTrafficPermitted="false" />
