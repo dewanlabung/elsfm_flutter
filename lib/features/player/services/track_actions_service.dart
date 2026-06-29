@@ -8,11 +8,12 @@ class TrackActionsService {
   Future<void> shareTrack(Track track) async {
     try {
       final url = 'https://www.elsfm.com/tracks/${track.id}';
-      final message = '${track.title} by ${track.artist?.name ?? 'Unknown'}\n$url';
+      final artistName = track.artists.isNotEmpty ? track.artists[0].name : 'Unknown';
+      final message = '${track.name} by $artistName\n$url';
 
       await Share.share(
         message,
-        subject: track.title,
+        subject: track.name,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -43,7 +44,7 @@ class TrackActionsService {
       // 4. Save metadata
 
       if (kDebugMode) {
-        debugPrint('Downloading track: ${track.title}');
+        debugPrint('Downloading track: ${track.name}');
       }
 
       return true;
@@ -63,7 +64,7 @@ class TrackActionsService {
       // Body: { "track_id": track.id }
 
       if (kDebugMode) {
-        debugPrint('Adding ${track.title} to playlist $playlistId');
+        debugPrint('Adding ${track.name} to playlist $playlistId');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -79,7 +80,7 @@ class TrackActionsService {
       // This is typically handled by the player provider
       // But we can use this service to track analytics or cache
       if (kDebugMode) {
-        debugPrint('Adding ${track.title} to queue');
+        debugPrint('Adding ${track.name} to queue');
       }
     } catch (e) {
       if (kDebugMode) {

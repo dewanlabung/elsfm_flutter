@@ -119,14 +119,14 @@ class TrackMenuBottomSheet extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    track.title,
+                    track.name,
                     style: Theme.of(context).textTheme.titleMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    track.artist?.name ?? 'Unknown Artist',
+                    track.artists.isNotEmpty ? track.artists[0].name : 'Unknown Artist',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.grey,
                         ),

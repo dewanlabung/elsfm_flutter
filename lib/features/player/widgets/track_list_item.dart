@@ -62,7 +62,7 @@ class TrackListItem extends ConsumerWidget {
               else
                 const SizedBox(width: 8),
               // Track artwork (if available)
-              if (track.artwork != null)
+              if (track.image != null)
                 Container(
                   width: 40,
                   height: 40,
@@ -70,7 +70,7 @@ class TrackListItem extends ConsumerWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
                     image: DecorationImage(
-                      image: NetworkImage(track.artwork!),
+                      image: NetworkImage(track.image!),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -96,7 +96,7 @@ class TrackListItem extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      track.title,
+                      track.name,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: isPlaying
                                 ? Theme.of(context).primaryColor
@@ -110,7 +110,7 @@ class TrackListItem extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      track.artist?.name ?? 'Unknown Artist',
+                      track.artists.isNotEmpty ? track.artists[0].name : 'Unknown Artist',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey,
                           ),
@@ -121,16 +121,15 @@ class TrackListItem extends ConsumerWidget {
                 ),
               ),
               // Duration
-              if (track.duration != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    _formatDuration(track.duration!),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  _formatDuration(track.duration.inSeconds),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey,
+                      ),
                 ),
+              ),
               // Like button
               IconButton(
                 icon: Icon(

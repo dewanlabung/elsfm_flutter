@@ -33,19 +33,19 @@ class PlayerTrackBar extends ConsumerWidget {
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
-              image: DecorationImage(
-                image: NetworkImage(currentTrack!.artwork ?? ''),
-                fit: BoxFit.cover,
-              ),
+              image: currentTrack!.image != null
+                  ? DecorationImage(
+                      image: NetworkImage(currentTrack!.image!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+              color: currentTrack!.image == null ? Colors.grey[300] : null,
             ),
-            child: currentTrack!.artwork == null
-                ? Container(
-                    color: Colors.grey[300],
-                    child: Icon(
-                      Icons.music_note,
-                      size: 24,
-                      color: Colors.grey[600],
-                    ),
+            child: currentTrack!.image == null
+                ? Icon(
+                    Icons.music_note,
+                    size: 24,
+                    color: Colors.grey[600],
                   )
                 : null,
           ),
@@ -57,7 +57,7 @@ class PlayerTrackBar extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    currentTrack!.title,
+                    currentTrack!.name,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -66,7 +66,7 @@ class PlayerTrackBar extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    currentTrack!.artist?.name ?? 'Unknown Artist',
+                    currentTrack!.artists.isNotEmpty ? currentTrack!.artists[0].name : 'Unknown Artist',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.grey,
                         ),
@@ -138,7 +138,7 @@ class PlayerTrackBar extends ConsumerWidget {
       await ref.read(addTrackToQueueProvider(currentTrack!).future);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${currentTrack!.title} added to queue'),
+          content: Text('${currentTrack!.name} added to queue'),
         ),
       );
     } catch (e) {
