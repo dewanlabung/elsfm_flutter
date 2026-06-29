@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:elsfm/features/auth/providers/auth_notifier.dart';
 import 'package:elsfm/features/auth/models/auth_state.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
+import 'package:elsfm/config/app_config.dart';
 import '../providers/library_provider.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
@@ -105,28 +107,57 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 class _PlaylistsTab extends ConsumerWidget {
   const _PlaylistsTab();
 
+  String? _img(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http')) return raw;
+    return '${AppConfig.webBaseUrl}/$raw';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      children: [
-        _SectionHeader(
-          title: 'Your Playlists',
-          action: IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Create playlist coming soon')),
-            ),
-          ),
-        ),
-        _EmptyState(
-          icon: Icons.playlist_play,
-          message: 'No playlists yet',
-          hint: 'Create a playlist to organize your music',
-        ),
-      ],
+    final playlistsAsync = ref.watch(userPlaylistsProvider);
+    return playlistsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _EmptyState(
+        icon: Icons.playlist_play,
+        message: 'No playlists yet',
+        hint: 'Create a playlist to organize your music',
+      ),
+      data: (playlists) {
+        if (playlists.isEmpty) {
+          return _EmptyState(
+            icon: Icons.playlist_play,
+            message: 'No playlists yet',
+            hint: 'Create a playlist to organize your music',
+          );
+        }
+        return ListView.builder(
+          itemCount: playlists.length,
+          itemBuilder: (context, i) {
+            final p = playlists[i];
+            final img = _img(p.image);
+            return ListTile(
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: img != null
+                    ? Image.network(img, width: 44, height: 44, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _artBox())
+                    : _artBox(),
+              ),
+              title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              onTap: () => context.push('/playlist/${p.id}'),
+            );
+          },
+        );
+      },
     );
   }
+
+  Widget _artBox() => Container(
+        width: 44, height: 44,
+        color: Colors.grey.shade300,
+        child: const Icon(Icons.queue_music, size: 22, color: Colors.grey),
+      );
 }
 
 // ── SONGS ────────────────────────────────────────────────────────────────────
@@ -136,9 +167,9 @@ class _SongsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final favoritesAsync = ref.watch(favoritesProvider);
+    final tracksAsync = ref.watch(likedTracksProvider);
 
-    return favoritesAsync.when(
+    return tracksAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => _EmptyState(
         icon: Icons.error_outline,
@@ -166,7 +197,10 @@ class _SongsTab extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               trailing: const Icon(Icons.more_vert),
-              onTap: () => ref.read(playerProvider.notifier).playTrack(track),
+              onTap: () {
+                ref.read(playerProvider.notifier).setQueue(tracks, startIndex: i);
+                context.push('/now-playing');
+              },
             );
           },
         );
@@ -195,14 +229,75 @@ class _ArtistsTab extends ConsumerWidget {
 class _AlbumsTab extends ConsumerWidget {
   const _AlbumsTab();
 
+  String? _img(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http')) return raw;
+    return '${AppConfig.webBaseUrl}/$raw';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _EmptyState(
-      icon: Icons.album_outlined,
-      message: 'No saved albums',
-      hint: 'Save albums to access them quickly',
+    final albumsAsync = ref.watch(likedAlbumsProvider);
+    return albumsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _EmptyState(
+        icon: Icons.album_outlined,
+        message: 'No saved albums',
+        hint: 'Save albums to access them quickly',
+      ),
+      data: (albums) {
+        if (albums.isEmpty) {
+          return _EmptyState(
+            icon: Icons.album_outlined,
+            message: 'No saved albums',
+            hint: 'Save albums to access them quickly',
+          );
+        }
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 0.85,
+          ),
+          itemCount: albums.length,
+          itemBuilder: (context, i) {
+            final album = albums[i];
+            final img = _img(album.image);
+            return GestureDetector(
+              onTap: () => context.push('/album/${album.id}'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: img != null
+                          ? Image.network(img, fit: BoxFit.cover, width: double.infinity,
+                              errorBuilder: (_, __, ___) => _albumBox())
+                          : _albumBox(),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(album.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  if (album.artists.isNotEmpty)
+                    Text(album.artists[0].name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
+
+  Widget _albumBox() => Container(
+        color: Colors.grey.shade300,
+        child: const Center(child: Icon(Icons.album, size: 40, color: Colors.grey)),
+      );
 }
 
 // ── GENRES ───────────────────────────────────────────────────────────────────

@@ -184,6 +184,15 @@ class ApiClient {
     );
   }
 
+  // Like / unlike tracks
+  Future<void> likeTrack(int userId, int trackId) async {
+    await dio.post('/users/$userId/liked-tracks/attach', data: {'ids': [trackId]});
+  }
+
+  Future<void> unlikeTrack(int userId, int trackId) async {
+    await dio.post('/users/$userId/liked-tracks/detach', data: {'ids': [trackId]});
+  }
+
   // Genres
   Future<List<Genre>> getGenres({int perPage = 20}) async {
     final response = await dio.get<Map<String, dynamic>>(

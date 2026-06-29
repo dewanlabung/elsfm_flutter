@@ -1,8 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:elsfm/data/providers/http_client_provider.dart';
+import 'package:elsfm/data/providers/api_client_provider.dart';
 import 'package:elsfm/data/repositories/user_library_repository.dart';
+import 'package:elsfm/features/auth/providers/auth_notifier.dart';
 import '../services/library_service.dart';
 import 'package:elsfm/data/models/track.dart';
+import 'package:elsfm/data/models/album.dart';
+import 'package:elsfm/data/models/playlist.dart';
 
 /// Library repository provider
 final libraryRepositoryProvider = Provider<UserLibraryRepository>((ref) {
@@ -47,3 +51,30 @@ class FavoriteToggleNotifier extends StateNotifier<Map<int, bool>> {
 final favoriteToggleProvider = StateNotifierProvider<FavoriteToggleNotifier, Map<int, bool>>(
   (ref) => FavoriteToggleNotifier({}),
 );
+
+/// User's liked tracks from API
+final likedTracksProvider = FutureProvider<List<Track>>((ref) async {
+  final userId = ref.watch(authNotifierProvider).user?.id;
+  if (userId == null) return [];
+  final api = ref.watch(apiClientProvider);
+  final result = await api.getLikedTracks(userId);
+  return result.data;
+});
+
+/// User's liked albums from API
+final likedAlbumsProvider = FutureProvider<List<Album>>((ref) async {
+  final userId = ref.watch(authNotifierProvider).user?.id;
+  if (userId == null) return [];
+  final api = ref.watch(apiClientProvider);
+  final result = await api.getLikedAlbums(userId);
+  return result.data;
+});
+
+/// User's own playlists from API
+final userPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
+  final userId = ref.watch(authNotifierProvider).user?.id;
+  if (userId == null) return [];
+  final api = ref.watch(apiClientProvider);
+  final result = await api.getUserPlaylists(userId);
+  return result.data;
+});

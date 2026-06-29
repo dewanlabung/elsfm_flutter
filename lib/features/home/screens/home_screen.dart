@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/playlist.dart';
+import '../../../data/models/album.dart';
 import '../../../data/models/genre.dart';
 import '../../../config/app_config.dart';
 import '../providers/home_provider.dart';
@@ -67,6 +68,11 @@ class HomeScreen extends ConsumerWidget {
                 _SectionHeader(title: 'Browse by Genre'),
                 _GenreRow(genres: home.genres),
                 const SizedBox(height: 8),
+                if (home.newReleases.isNotEmpty) ...[
+                  _SectionHeader(title: 'New Releases'),
+                  _AlbumRow(albums: home.newReleases),
+                  const SizedBox(height: 8),
+                ],
                 _SectionHeader(title: 'Popular Songs'),
                 _TrackList(tracks: home.topTracks),
               ],
@@ -151,6 +157,73 @@ class _PlaylistCard extends StatelessWidget {
             SizedBox(
               width: size,
               child: Text(playlist.name,
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Albums (new releases) ─────────────────────────────────────────────────────
+
+class _AlbumRow extends StatelessWidget {
+  final List<Album> albums;
+  const _AlbumRow({required this.albums});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 160,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: albums.length,
+        itemBuilder: (_, i) => _AlbumCard(album: albums[i]),
+      ),
+    );
+  }
+}
+
+class _AlbumCard extends StatelessWidget {
+  final Album album;
+  const _AlbumCard({required this.album});
+
+  Color get _color {
+    final hue = (album.name.codeUnits.fold(0, (a, b) => a + b) % 360).toDouble();
+    return HSLColor.fromAHSL(1.0, hue, 0.4, 0.35).toColor();
+  }
+
+  String? get _img {
+    final img = album.image;
+    if (img == null || img.isEmpty) return null;
+    if (img.startsWith('http')) return img;
+    return '${AppConfig.webBaseUrl}/$img';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 120.0;
+    return GestureDetector(
+      onTap: () => context.push('/album/${album.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _img != null
+                  ? Image.network(_img!, width: size, height: size, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _ColorBox(color: _color, size: size))
+                  : _ColorBox(color: _color, size: size),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: size,
+              child: Text(album.name,
                   maxLines: 2, overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelSmall),
