@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/download_service.dart';
 import 'package:elsfm/data/models/track.dart';
+import 'package:elsfm/data/providers/http_client_provider.dart';
 
 /// Download service provider (singleton)
 final downloadServiceProvider = Provider<DownloadService>((ref) {
-  return DownloadService();
+  final dio = ref.watch(dioProvider).requireValue;
+  return DownloadService(dio);
 });
 
 /// Downloads list provider

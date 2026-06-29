@@ -6,6 +6,8 @@ import 'package:elsfm/features/auth/providers/auth_notifier.dart';
 import '../services/library_service.dart';
 import 'package:elsfm/data/models/track.dart';
 import 'package:elsfm/data/models/album.dart';
+import 'package:elsfm/data/models/artist.dart';
+import 'package:elsfm/data/models/genre.dart';
 import 'package:elsfm/data/models/playlist.dart';
 
 /// Library repository provider
@@ -76,5 +78,20 @@ final userPlaylistsProvider = FutureProvider<List<Playlist>>((ref) async {
   if (userId == null) return [];
   final api = ref.watch(apiClientProvider);
   final result = await api.getUserPlaylists(userId);
+  return result.data;
+});
+
+/// Genres from API
+final genresProvider = FutureProvider<List<Genre>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.getGenres(perPage: 20);
+});
+
+/// Followed artists from API
+final followedArtistsProvider = FutureProvider<List<Artist>>((ref) async {
+  final userId = ref.watch(authNotifierProvider).user?.id;
+  if (userId == null) return [];
+  final api = ref.watch(apiClientProvider);
+  final result = await api.getFollowedArtists(userId);
   return result.data;
 });

@@ -216,10 +216,41 @@ class _ArtistsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _EmptyState(
-      icon: Icons.person_outline,
-      message: 'No followed artists',
-      hint: 'Follow artists to see them here',
+    final artistsAsync = ref.watch(followedArtistsProvider);
+    return artistsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _EmptyState(
+        icon: Icons.person_outline,
+        message: 'No followed artists',
+        hint: 'Follow artists to see them here',
+      ),
+      data: (artists) {
+        if (artists.isEmpty) {
+          return _EmptyState(
+            icon: Icons.person_outline,
+            message: 'No followed artists',
+            hint: 'Follow artists to see them here',
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: artists.length,
+          itemBuilder: (context, i) {
+            final artist = artists[i];
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage:
+                    artist.image != null ? NetworkImage(artist.image!) : null,
+                child: artist.image == null
+                    ? const Icon(Icons.person)
+                    : null,
+              ),
+              title: Text(artist.name),
+              onTap: () => context.push('/artists/${artist.id}'),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -305,31 +336,37 @@ class _AlbumsTab extends ConsumerWidget {
 class _GenresTab extends ConsumerWidget {
   const _GenresTab();
 
+  static const _palette = [
+    Colors.pink, Colors.red, Colors.orange, Colors.purple,
+    Colors.blue, Colors.brown, Colors.indigo, Colors.green,
+    Colors.teal, Colors.cyan, Colors.amber, Colors.deepOrange,
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const genres = [
-      ('Pop', Icons.music_note, Colors.pink),
-      ('Rock', Icons.music_video, Colors.red),
-      ('Hip-Hop', Icons.mic, Colors.orange),
-      ('R&B', Icons.favorite, Colors.purple),
-      ('Electronic', Icons.graphic_eq, Colors.blue),
-      ('Jazz', Icons.piano, Colors.brown),
-      ('Classical', Icons.queue_music, Colors.indigo),
-      ('Country', Icons.music_video, Colors.green),
-    ];
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 2.2,
-      ),
-      itemCount: genres.length,
-      itemBuilder: (context, i) {
-        final (name, icon, color) = genres[i];
-        return _GenreCard(name: name, icon: icon, color: color);
+    final genresAsync = ref.watch(genresProvider);
+    return genresAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Failed to load genres\n$e', textAlign: TextAlign.center)),
+      data: (genres) {
+        if (genres.isEmpty) {
+          return const Center(child: Text('No genres available'));
+        }
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 2.2,
+          ),
+          itemCount: genres.length,
+          itemBuilder: (context, i) {
+            final genre = genres[i];
+            final color = _palette[i % _palette.length];
+            return _GenreCard(name: genre.label, color: color, imageUrl: genre.image);
+          },
+        );
       },
     );
   }
@@ -337,10 +374,10 @@ class _GenresTab extends ConsumerWidget {
 
 class _GenreCard extends StatelessWidget {
   final String name;
-  final IconData icon;
   final Color color;
+  final String? imageUrl;
 
-  const _GenreCard({required this.name, required this.icon, required this.color});
+  const _GenreCard({required this.name, required this.color, this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +391,20 @@ class _GenreCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
-              Icon(icon, color: color, size: 28),
+              if (imageUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(
+                    imageUrl!,
+                    width: 28,
+                    height: 28,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        Icon(Icons.music_note, color: color, size: 28),
+                  ),
+                )
+              else
+                Icon(Icons.music_note, color: color, size: 28),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
