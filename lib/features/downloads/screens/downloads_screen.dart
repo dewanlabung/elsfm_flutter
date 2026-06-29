@@ -43,7 +43,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen>
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final all = ref.watch(downloadsListProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
