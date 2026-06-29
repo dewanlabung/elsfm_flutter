@@ -136,6 +136,61 @@ class AuthService {
     throw Exception('Failed to get user (status: ${response.statusCode})');
   }
 
+  Future<User> updateProfile({
+    required int userId,
+    String? name,
+    String? email,
+  }) async {
+    try {
+      final response = await dio.put(
+        '/users/$userId',
+        data: {
+          if (name != null) 'name': name,
+          if (email != null) 'email': email,
+        },
+        options: Options(contentType: 'application/json'),
+      );
+      final data = response.data as Map<String, dynamic>;
+      final userJson = (data['user'] ?? data) as Map<String, dynamic>;
+      return User.fromJson(userJson);
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['message'] as String?
+          ?? e.message
+          ?? 'Failed to update profile';
+      throw Exception(msg);
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmation,
+  }) async {
+    try {
+      await dio.post(
+        '/auth/change-password',
+        data: {
+          'current_password': currentPassword,
+          'password': newPassword,
+          'password_confirmation': confirmation,
+        },
+        options: Options(contentType: 'application/json'),
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String msg = e.message ?? 'Failed to change password';
+      if (data is Map) {
+        final errors = data['errors'] as Map?;
+        if (errors != null) {
+          msg = errors.values.expand((v) => v is List ? v : [v]).join('\n');
+        } else {
+          msg = data['message'] as String? ?? msg;
+        }
+      }
+      throw Exception(msg);
+    }
+  }
+
   Future<void> logout() async {
     try {
       await dio.post('/auth/logout');

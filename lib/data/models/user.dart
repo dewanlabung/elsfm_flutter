@@ -16,11 +16,14 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    final avatarRaw = json['avatar'] as String?;
     return User(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      avatar: resolveImageUrl(json['avatar'] as String?),
+      avatar: (avatarRaw == null || avatarRaw.isEmpty)
+          ? null
+          : resolveImageUrl(avatarRaw),
       emailVerified: json['email_verified_at'] != null,
     );
   }

@@ -172,6 +172,27 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
     return authService.forgotPassword(email);
   }
 
+  Future<void> updateProfile({String? name, String? email}) async {
+    final userId = state.user?.id;
+    if (userId == null) throw Exception('Not authenticated');
+    final user = await authService.updateProfile(
+        userId: userId, name: name, email: email);
+    await _cacheUser(user);
+    state = AuthStateData.authenticated(user);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmation,
+  }) async {
+    await authService.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmation: confirmation,
+    );
+  }
+
   Future<void> logout() async {
     try {
       await authService.logout();

@@ -11,6 +11,7 @@ import '../features/album/screens/album_screen.dart';
 import '../features/artist/screens/artist_screen.dart';
 import '../features/playlist/screens/playlist_screen.dart';
 import '../features/downloads/screens/downloads_screen.dart';
+import '../features/profile/screens/account_settings_screen.dart';
 
 /// App router configuration with all routes
 final appRouter = GoRouter(
@@ -66,6 +67,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/downloads',
           builder: (context, state) => const DownloadsScreen(),
+        ),
+        GoRoute(
+          path: '/account-settings',
+          builder: (context, state) => const AccountSettingsScreen(),
         ),
       ],
     ),
