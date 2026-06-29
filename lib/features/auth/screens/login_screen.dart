@@ -68,7 +68,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.read(authNotifierProvider.notifier).loginWithEmail(email, password);
   }
 
-  void _handleGoogleLogin() {
+  Future<void> _handleGoogleLogin() async {
+    // Try native device account picker first (no WebView, uses Chrome-linked accounts)
+    final succeeded = await ref.read(authNotifierProvider.notifier).loginWithGoogle();
+    if (!mounted || succeeded) return;
+
+    // Fall back to WebView-based OAuth if native fails
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => GoogleOAuthScreen(
         onSuccess: ({String? token}) {

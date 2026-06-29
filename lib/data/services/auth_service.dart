@@ -110,6 +110,41 @@ class AuthService {
     }
   }
 
+  /// Exchange a Google OAuth token for a BeMusic auth token.
+  /// BeMusic's Socialite backend verifies the token and returns a user + API token.
+  Future<({User user, String? token})> loginWithGoogleToken({
+    String? accessToken,
+    String? idToken,
+  }) async {
+    if (accessToken == null && idToken == null) {
+      throw Exception('No Google token provided');
+    }
+    try {
+      final response = await dio.post(
+        '/auth/social/google',
+        data: <String, dynamic>{
+          if (accessToken != null) 'access_token': accessToken,
+          if (idToken != null) 'id_token': idToken,
+          'provider': 'google',
+        },
+        options: Options(contentType: 'application/json'),
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final token = _extractToken(data);
+        if (token != null) dio.options.headers['Authorization'] = 'Bearer $token';
+        final userJson = data['user'] as Map<String, dynamic>?;
+        if (userJson != null) return (user: User.fromJson(userJson), token: token);
+      }
+      throw Exception('Unexpected response from social login');
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['message'] as String? ??
+          e.message ??
+          'Google login failed';
+      throw Exception(msg);
+    }
+  }
+
   /// Get current user using existing session/cookie (after WebView social OAuth).
   Future<({User user, String? token})> loginWithSession() async {
     try {

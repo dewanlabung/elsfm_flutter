@@ -9,6 +9,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/models/user.dart';
 import '../models/auth_state.dart';
 import '../services/biometric_auth_service.dart';
+import '../services/google_sign_in_service.dart';
 
 const _tokenKey = 'auth_token';
 const _cachedUserKey = 'cached_user';
@@ -130,6 +131,32 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
     } catch (e) {
       authService.clearToken();
       state = AuthStateData.error('Social login failed: ${e.toString()}');
+    }
+  }
+
+  /// Sign in with the device's Google account (native account picker).
+  /// Falls back to WebView if native sign-in fails (e.g., missing google-services.json).
+  Future<bool> loginWithGoogle() async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final service = GoogleSignInService();
+      final googleResult = await service.signInWithGoogle();
+
+      final result = await authService.loginWithGoogleToken(
+        accessToken: googleResult.accessToken,
+        idToken: googleResult.idToken,
+      );
+
+      if (result.token != null) {
+        await secureStorage.write(key: _tokenKey, value: result.token);
+      }
+      await _cacheUser(result.user);
+      state = AuthStateData.authenticated(result.user);
+      return true; // native sign-in succeeded
+    } catch (e) {
+      if (kDebugMode) debugPrint('Native Google Sign-In failed: $e');
+      state = AuthStateData.unauthenticated(); // reset so UI shows sign-in options
+      return false; // caller should fall back to WebView
     }
   }
 
