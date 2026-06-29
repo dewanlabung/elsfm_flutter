@@ -1,16 +1,17 @@
+import 'dart:convert';
 import 'package:dio/dio.dart' show DioException, Dio, BaseOptions;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/providers/http_client_provider.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/models/user.dart';
 import '../models/auth_state.dart';
 import '../services/biometric_auth_service.dart';
-import '../services/dev_auth_helper.dart';
-import '../services/google_sign_in_service.dart';
 
 const _tokenKey = 'auth_token';
+const _cachedUserKey = 'cached_user';
 
 class AuthNotifier extends StateNotifier<AuthStateData> {
   final AuthService authService;
@@ -25,6 +26,31 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
     _initAuth();
   }
 
+  Future<void> _cacheUser(User user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cachedUserKey, jsonEncode(user.toJson()));
+    } catch (_) {}
+  }
+
+  Future<User?> _getCachedUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cachedUserKey);
+      if (raw == null) return null;
+      return User.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _clearCachedUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cachedUserKey);
+    } catch (_) {}
+  }
+
   Future<void> _initAuth() async {
     state = state.copyWith(state: AuthState.authenticating);
 
@@ -34,42 +60,47 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
       if (biometricToken != null) {
         authService.setToken(biometricToken);
         final user = await authService.getCurrentUser();
+        await _cacheUser(user);
         state = AuthStateData.authenticated(user);
         return;
       }
     } catch (e) {
-      // Biometric failed — fall through to saved token
       if (kDebugMode) debugPrint('Biometric init error: $e');
     }
 
-    // 2. Try saved token (don't delete it on network errors)
+    // 2. Try saved token
     final savedToken = await secureStorage.read(key: _tokenKey);
     if (savedToken != null) {
+      authService.setToken(savedToken);
       try {
-        authService.setToken(savedToken);
         final user = await authService.getCurrentUser();
+        await _cacheUser(user);
         state = AuthStateData.authenticated(user);
         return;
       } on DioException catch (e) {
-        // Only clear token on 401 Unauthorized — not network errors
         if (e.response?.statusCode == 401) {
+          // Token invalid — force re-login
           await secureStorage.delete(key: _tokenKey);
+          await _clearCachedUser();
           authService.clearToken();
         } else {
-          // Network error: keep the token and show logged-in state
-          // so user isn't forced to re-login on every network issue
-          if (kDebugMode) debugPrint('Network error during auth init: $e');
+          // Network error — restore from cache so user stays logged in offline
+          final cached = await _getCachedUser();
+          if (cached != null) {
+            state = AuthStateData.authenticated(cached);
+            return;
+          }
         }
-        state = AuthStateData.unauthenticated();
-        return;
-      } catch (e) {
-        if (kDebugMode) debugPrint('Auth init error: $e');
-        state = AuthStateData.unauthenticated();
-        return;
+      } catch (_) {
+        // Any other error — try cache
+        final cached = await _getCachedUser();
+        if (cached != null) {
+          state = AuthStateData.authenticated(cached);
+          return;
+        }
       }
     }
 
-    // 3. No saved token — show login screen
     state = AuthStateData.unauthenticated();
   }
 
@@ -80,105 +111,109 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
       if (result.token != null) {
         await secureStorage.write(key: _tokenKey, value: result.token);
       }
+      await _cacheUser(result.user);
       state = AuthStateData.authenticated(result.user);
     } catch (e) {
       state = AuthStateData.error(e.toString());
     }
   }
 
-  Future<void> loginWithGoogle(BuildContext context) async {
+  /// Login with a token obtained from WebView-based social OAuth callback.
+  Future<void> loginWithSocialToken(String token) async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
+      authService.setToken(token);
+      final user = await authService.getCurrentUser();
+      await secureStorage.write(key: _tokenKey, value: token);
+      await _cacheUser(user);
+      state = AuthStateData.authenticated(user);
+    } catch (e) {
+      authService.clearToken();
+      state = AuthStateData.error('Social login failed: ${e.toString()}');
+    }
+  }
 
-      final googleService = GoogleSignInService();
-      final googleResult = await googleService.signInWithGoogle();
-
-      if (googleResult.idToken == null || googleResult.email == null) {
-        throw Exception('Google sign-in failed: Missing credentials');
-      }
-
-      final result = await authService.loginWithGoogle(
-        googleResult.idToken!,
-        googleResult.email!,
-      );
-
+  /// Called after WebView social OAuth when no token in URL — rely on session cookie.
+  Future<void> loginWithSession() async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final result = await authService.loginWithSession();
       if (result.token != null) {
         await secureStorage.write(key: _tokenKey, value: result.token!);
+        authService.setToken(result.token!);
       }
-
+      await _cacheUser(result.user);
       state = AuthStateData.authenticated(result.user);
     } catch (e) {
-      state = AuthStateData.error('Google sign-in failed: ${e.toString()}');
+      state = AuthStateData.error('Social login failed: ${e.toString()}');
     }
+  }
+
+  Future<void> register(
+    String name,
+    String email,
+    String password,
+    String passwordConfirmation,
+  ) async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final result = await authService.register(name, email, password, passwordConfirmation);
+      if (result.token != null) {
+        await secureStorage.write(key: _tokenKey, value: result.token);
+      }
+      await _cacheUser(result.user);
+      state = AuthStateData.authenticated(result.user);
+    } catch (e) {
+      state = AuthStateData.error(e.toString());
+    }
+  }
+
+  Future<String> forgotPassword(String email) async {
+    return authService.forgotPassword(email);
   }
 
   Future<void> logout() async {
     try {
       await authService.logout();
-      await secureStorage.delete(key: _tokenKey);
+    } catch (_) {}
+    await secureStorage.delete(key: _tokenKey);
+    await _clearCachedUser();
+    try {
       await biometricService.disableBiometric();
-      state = AuthStateData.unauthenticated();
-    } catch (e) {
-      state = AuthStateData.error(e.toString());
-    }
+    } catch (_) {}
+    state = AuthStateData.unauthenticated();
   }
 
-  /// Enable biometric login with current authentication token
   Future<void> enableBiometricLogin() async {
     try {
       final token = await secureStorage.read(key: _tokenKey);
-      if (token != null) {
-        await biometricService.enableBiometric(token);
-        if (kDebugMode) {
-          debugPrint('✓ Biometric login enabled');
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error enabling biometric: $e');
-      }
-    }
+      if (token != null) await biometricService.enableBiometric(token);
+    } catch (_) {}
   }
 
-  /// Disable biometric login
   Future<void> disableBiometricLogin() async {
     try {
       await biometricService.disableBiometric();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error disabling biometric: $e');
-      }
-    }
+    } catch (_) {}
   }
 }
 
-final secureStorageProvider = Provider((ref) {
-  return const FlutterSecureStorage();
-});
+final secureStorageProvider = Provider((ref) => const FlutterSecureStorage());
 
 final authServiceProvider = Provider((ref) {
-  // Use the full dioProvider when available, fallback to sync initialization
   try {
     return ref.watch(dioProvider).when(
       data: (dio) => AuthService(dio),
-      loading: () {
-        // Return auth service with default Dio config while initializing
-        return AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1')));
-      },
+      loading: () => AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'))),
       error: (err, st) => throw err,
     );
   } catch (e) {
-    // Fallback: create auth service with basic Dio config
     return AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1')));
   }
 });
 
-final authNotifierProvider =
-    StateNotifierProvider<AuthNotifier, AuthStateData>((ref) {
+final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthStateData>((ref) {
   final authService = ref.watch(authServiceProvider);
   final secureStorage = ref.watch(secureStorageProvider);
-  return AuthNotifier(
-    authService: authService,
-    secureStorage: secureStorage,
-  );
+  return AuthNotifier(authService: authService, secureStorage: secureStorage);
 });

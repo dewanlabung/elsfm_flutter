@@ -4,6 +4,8 @@ import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
 import '../../../data/models/track.dart';
 import '../../../data/services/player_service.dart';
+import '../../auth/models/auth_state.dart';
+import '../../auth/providers/auth_notifier.dart';
 
 class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
   final PlayerService playerService;
@@ -156,6 +158,22 @@ final _stubService = PlayerService();
 
 final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.PlayerState>((ref) {
   final playerServiceAsync = ref.watch(playerServiceProvider);
+
+  // Keep auth token in sync with auth state so streams work after login
+  ref.listen<AuthStateData>(authNotifierProvider, (previous, next) {
+    if (next.state == AuthState.authenticated) {
+      playerServiceAsync.whenData((playerService) async {
+        const storage = FlutterSecureStorage();
+        final token = await storage.read(key: 'auth_token');
+        playerService.setAuthToken(token);
+      });
+    } else if (next.state == AuthState.unauthenticated) {
+      playerServiceAsync.whenData((playerService) {
+        playerService.setAuthToken(null);
+      });
+    }
+  });
+
   return playerServiceAsync.when(
     data: (playerService) => PlayerNotifier(playerService),
     loading: () => PlayerNotifier(_stubService),
