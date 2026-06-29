@@ -87,7 +87,7 @@ class PlayerService {
     _tracksList = List<Track>.from(tracks);
     await _playlist.clear();
     for (final track in tracks) {
-      if (kDebugMode) debugPrint('[PlayerService] Adding track: ${track.title} (id: ${track.id}, src: ${track.src})');
+      if (kDebugMode) debugPrint('[PlayerService] Adding track: ${track.name} (id: ${track.id}, src: ${track.src})');
       await _playlist.add(_buildSource(track));
     }
     if (kDebugMode) debugPrint('[PlayerService] Queue setup complete');
