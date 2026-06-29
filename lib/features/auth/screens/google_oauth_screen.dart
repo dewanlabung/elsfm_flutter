@@ -39,12 +39,12 @@ class _GoogleOAuthScreenState extends State<GoogleOAuthScreen> {
         url.contains('#/auth/');
 
     if (isCallback) {
-      // Try to extract token from query params
+      // Try to extract token from query params or fragment
       final token = uri.queryParameters['token'] ??
           uri.queryParameters['access_token'] ??
-          uri.fragment.contains('token=')
+          (uri.fragment.contains('token=')
               ? Uri.splitQueryString(uri.fragment)['token']
-              : null;
+              : null);
 
       if (mounted) {
         Navigator.of(context).pop();
