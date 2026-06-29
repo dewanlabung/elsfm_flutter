@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../features/auth/models/auth_state.dart';
 import '../../../features/auth/providers/auth_notifier.dart';
-import '../../../features/auth/providers/biometric_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -86,8 +85,6 @@ class ProfileScreen extends ConsumerWidget {
                 // TODO: Navigate to notification settings
               },
             ),
-            const SizedBox(height: 8),
-            _BiometricToggleTile(ref: ref),
             const SizedBox(height: 24),
             // Logout button
             SizedBox(
@@ -111,81 +108,6 @@ class ProfileScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _BiometricToggleTile extends ConsumerStatefulWidget {
-  final WidgetRef ref;
-
-  const _BiometricToggleTile({required this.ref});
-
-  @override
-  ConsumerState<_BiometricToggleTile> createState() =>
-      _BiometricToggleTileState();
-}
-
-class _BiometricToggleTileState extends ConsumerState<_BiometricToggleTile> {
-  @override
-  Widget build(BuildContext context) {
-    final canUseBiometrics = ref.watch(biometricSupportProvider);
-    final isBiometricEnabled = ref.watch(biometricEnabledProvider);
-
-    return canUseBiometrics.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (canUse) {
-        if (!canUse) {
-          return const SizedBox.shrink();
-        }
-
-        return isBiometricEnabled.when(
-          loading: () => ListTile(
-            leading: const Icon(Icons.fingerprint),
-            title: const Text('Biometric Login'),
-            enabled: false,
-            trailing: const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (isEnabled) {
-            return ListTile(
-              leading: const Icon(Icons.fingerprint),
-              title: const Text('Biometric Login'),
-              subtitle: Text(
-                isEnabled ? 'Enabled' : 'Disabled',
-                style: TextStyle(
-                  color:
-                      isEnabled ? Colors.green : Colors.grey,
-                ),
-              ),
-              trailing: Switch(
-                value: isEnabled,
-                onChanged: (value) async {
-                  if (value) {
-                    // Enable biometric
-                    await ref
-                        .read(authNotifierProvider.notifier)
-                        .enableBiometricLogin();
-                    // Refresh the provider
-                    ref.invalidate(biometricEnabledProvider);
-                  } else {
-                    // Disable biometric
-                    await ref
-                        .read(authNotifierProvider.notifier)
-                        .disableBiometricLogin();
-                    // Refresh the provider
-                    ref.invalidate(biometricEnabledProvider);
-                  }
-                },
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

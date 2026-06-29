@@ -77,16 +77,6 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const Divider(height: 1, indent: 72),
 
-          // ── Biometric ───────────────────────────────────────────────────
-          _SettingsTile(
-            icon: Icons.fingerprint,
-            iconColor: Colors.teal,
-            title: 'Biometric Login',
-            subtitle: 'Use fingerprint or face to sign in',
-            onTap: () => _showComingSoon(context, 'Biometric'),
-          ),
-          const Divider(height: 1, indent: 72),
-
           // ── About ───────────────────────────────────────────────────────
           _SettingsTile(
             icon: Icons.info_outline,

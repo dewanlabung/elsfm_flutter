@@ -8,6 +8,8 @@ class HiveService {
   static const String tracksBoxName = 'cache_tracks';
   static const String albumsBoxName = 'cache_albums';
   static const String playlistsBoxName = 'cache_playlists';
+  static const String artistsBoxName = 'cache_artists';
+  static const String genresBoxName = 'cache_genres';
 
   static Future<void> init() async {
     final appDocDir = await getApplicationDocumentsDirectory();
@@ -25,6 +27,8 @@ class HiveService {
       Hive.openBox<String>(tracksBoxName),
       Hive.openBox<String>(albumsBoxName),
       Hive.openBox<String>(playlistsBoxName),
+      Hive.openBox<String>(artistsBoxName),
+      Hive.openBox<String>(genresBoxName),
     ]);
   }
 
@@ -41,6 +45,14 @@ class HiveService {
   /// Returns a [CacheService] scoped to the playlists box.
   static CacheService getPlaylistCache() =>
       CacheService(Hive.box<String>(playlistsBoxName));
+
+  /// Returns a [CacheService] scoped to the artists box.
+  static CacheService getArtistCache() =>
+      CacheService(Hive.box<String>(artistsBoxName));
+
+  /// Returns a [CacheService] scoped to the genres box.
+  static CacheService getGenreCache() =>
+      CacheService(Hive.box<String>(genresBoxName));
 
   static Future<void> close() async {
     await Hive.close();

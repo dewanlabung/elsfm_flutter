@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../data/providers/http_client_provider.dart';
 import '../../../data/services/auth_service.dart';
 import '../models/auth_state.dart';
+import '../services/google_sign_in_service.dart';
 
 const _tokenKey = 'auth_token';
 
@@ -17,7 +18,6 @@ class AuthNotifier extends Notifier<AuthStateData> {
   AuthStateData build() {
     _authService = ref.watch(authServiceProvider);
     _secureStorage = ref.watch(secureStorageProvider);
-    // Kick off async init without blocking the synchronous build.
     Future.microtask(_initAuth);
     return AuthStateData.unauthenticated();
   }
@@ -34,7 +34,7 @@ class AuthNotifier extends Notifier<AuthStateData> {
         state = AuthStateData.authenticated(user);
         return;
       } on DioException catch (e) {
-        // Only clear token on 401 Unauthorized — not network errors.
+        // Only clear token on 401 Unauthorized — not on network errors.
         if (e.response?.statusCode == 401) {
           await _secureStorage.delete(key: _tokenKey);
           _authService.clearToken();
@@ -50,7 +50,6 @@ class AuthNotifier extends Notifier<AuthStateData> {
       }
     }
 
-    // No saved token — show login screen.
     state = AuthStateData.unauthenticated();
   }
 
@@ -96,32 +95,9 @@ class AuthNotifier extends Notifier<AuthStateData> {
     try {
       await _authService.logout();
       await _secureStorage.delete(key: _tokenKey);
-      await _biometricService.disableBiometric();
       state = AuthStateData.unauthenticated();
     } catch (e) {
       state = AuthStateData.error(e.toString());
-    }
-  }
-
-  /// Enable biometric login with the current authentication token.
-  Future<void> enableBiometricLogin() async {
-    try {
-      final token = await _secureStorage.read(key: _tokenKey);
-      if (token != null) {
-        await _biometricService.enableBiometric(token);
-        if (kDebugMode) debugPrint('Biometric login enabled');
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error enabling biometric: $e');
-    }
-  }
-
-  /// Disable biometric login.
-  Future<void> disableBiometricLogin() async {
-    try {
-      await _biometricService.disableBiometric();
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error disabling biometric: $e');
     }
   }
 }
@@ -131,7 +107,6 @@ final secureStorageProvider = Provider((ref) {
 });
 
 final authServiceProvider = Provider<AuthService>((ref) {
-  // Use the async dioProvider; fall back to a plain Dio while it initialises.
   return ref.watch(dioProvider).when(
     data: (dio) => AuthService(dio),
     loading: () =>
