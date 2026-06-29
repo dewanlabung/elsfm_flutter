@@ -6,6 +6,7 @@ import '../../../data/models/playlist.dart';
 import '../../../data/models/album.dart';
 import '../providers/home_provider.dart';
 import '../../player/providers/player_notifier.dart';
+import '../../player/widgets/track_context_menu.dart';
 
 String _fmtDuration(Duration d) {
   final m = d.inSeconds ~/ 60;
@@ -347,10 +348,13 @@ class _TrackTile extends ConsumerWidget {
           Text(_fmtDuration(track.duration),
               style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(width: 4),
-          Icon(Icons.more_vert,
-              size: 20,
-              color:
-                  Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+          IconButton(
+            icon: Icon(Icons.more_vert,
+                size: 20,
+                color:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+            onPressed: () => showTrackContextSheet(context, track),
+          ),
         ],
       ),
       onTap: () => ref

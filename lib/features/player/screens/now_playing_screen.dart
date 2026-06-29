@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/player_notifier.dart';
-import 'package:elsfm/data/models/player_state.dart';
+import 'package:elsfm/data/models/player_state.dart' as player_state_model;
 
 /// Now Playing screen — full-screen dark player matching elsfm.com mobile style
 class NowPlayingScreen extends ConsumerWidget {
@@ -27,7 +27,7 @@ class NowPlayingScreen extends ConsumerWidget {
     final currentTrack = playerState.currentTrack;
     final playerReady = ref.watch(playerServiceProvider).hasValue;
 
-    ref.listen<PlayerState>(playerProvider, (prev, next) {
+    ref.listen<player_state_model.PlayerState>(playerProvider, (prev, next) {
       if (next.error != null && next.error != prev?.error) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -311,7 +311,7 @@ class NowPlayingScreen extends ConsumerWidget {
                             IconButton(
                               icon: Icon(
                                 _getRepeatIcon(playerState.repeatMode),
-                                color: playerState.repeatMode != RepeatMode.none
+                                color: playerState.repeatMode != player_state_model.RepeatMode.none
                                     ? Colors.white
                                     : Colors.white54,
                               ),
@@ -333,13 +333,13 @@ class NowPlayingScreen extends ConsumerWidget {
     );
   }
 
-  IconData _getRepeatIcon(RepeatMode mode) {
+  IconData _getRepeatIcon(player_state_model.RepeatMode mode) {
     switch (mode) {
-      case RepeatMode.none:
+      case player_state_model.RepeatMode.none:
         return Icons.repeat;
-      case RepeatMode.one:
+      case player_state_model.RepeatMode.one:
         return Icons.repeat_one;
-      case RepeatMode.all:
+      case player_state_model.RepeatMode.all:
         return Icons.repeat_on;
     }
   }

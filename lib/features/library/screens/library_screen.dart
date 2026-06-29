@@ -5,6 +5,7 @@ import 'package:elsfm/features/auth/providers/auth_notifier.dart';
 import 'package:elsfm/features/auth/models/auth_state.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
 import '../providers/library_provider.dart';
+import '../../player/widgets/track_context_menu.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -192,7 +193,10 @@ class _SongsTab extends ConsumerWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              trailing: const Icon(Icons.more_vert),
+              trailing: IconButton(
+                icon: const Icon(Icons.more_vert),
+                onPressed: () => showTrackContextSheet(context, track),
+              ),
               onTap: () => ref.read(playerProvider.notifier).playTrack(track),
             );
           },

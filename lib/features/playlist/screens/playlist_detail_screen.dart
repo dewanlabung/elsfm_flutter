@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/track.dart';
 import '../../../data/providers/api_client_provider.dart';
 import '../../player/providers/player_notifier.dart';
+import '../../player/widgets/track_context_menu.dart';
 
 // ---------------------------------------------------------------------------
 // Provider
@@ -283,6 +284,10 @@ class _TrackRow extends ConsumerWidget {
                   .read(playerProvider.notifier)
                   .setQueue(allTracks, startIndex: index);
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, size: 20),
+            onPressed: () => showTrackContextSheet(context, track),
           ),
         ],
       ),

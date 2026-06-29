@@ -7,6 +7,7 @@ import 'package:elsfm/data/models/artist.dart';
 import 'package:elsfm/data/models/album.dart';
 import 'package:elsfm/data/models/playlist.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
+import '../../player/widgets/track_context_menu.dart';
 
 /// Search results display widget
 class SearchResultsList extends ConsumerWidget {
@@ -63,12 +64,21 @@ class SearchResultsList extends ConsumerWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          trailing: Text(
-            '${song.duration.inMinutes}:${(song.duration.inSeconds % 60).toString().padLeft(2, '0')}',
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.outline,
-            ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${song.duration.inMinutes}:${(song.duration.inSeconds % 60).toString().padLeft(2, '0')}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.more_vert, size: 20),
+                onPressed: () => showTrackContextSheet(context, song),
+              ),
+            ],
           ),
           onTap: () {
             ref.read(playerProvider.notifier).playTrack(song);

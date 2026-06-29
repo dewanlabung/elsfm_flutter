@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:elsfm/data/models/track.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
 import '../providers/artist_detail_provider.dart';
+import '../../player/widgets/track_context_menu.dart';
 
 class ArtistDetailScreen extends ConsumerWidget {
   final int artistId;
@@ -153,9 +154,18 @@ class _TrackTile extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: colorScheme.outline),
             )
           : null,
-      trailing: Text(
-        _formatDuration(track.duration),
-        style: TextStyle(fontSize: 12, color: colorScheme.outline),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _formatDuration(track.duration),
+            style: TextStyle(fontSize: 12, color: colorScheme.outline),
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, size: 20),
+            onPressed: () => showTrackContextSheet(context, track),
+          ),
+        ],
       ),
       onTap: onTap,
     );
