@@ -70,8 +70,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () {},
-            tooltip: 'Search library',
+            onPressed: () => context.go('/search'),
+            tooltip: 'Search',
           ),
         ],
         bottom: TabBar(
