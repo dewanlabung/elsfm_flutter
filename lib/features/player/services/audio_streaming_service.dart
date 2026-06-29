@@ -9,45 +9,46 @@ class AudioStreamingService {
 
   AudioStreamingService({required this.dio});
 
-  /// Returns the stream URL for a given track ID.
-  ///
-  /// The BeMusic stream endpoint (`/tracks/{id}/stream`) is a direct audio
-  /// stream — it does NOT return JSON. We construct the full URL here and let
-  /// just_audio stream it directly, passing the Authorization header so the
-  /// server accepts the authenticated request.
+  /// Builds the best URL for streaming a track.
+  /// Uses /download endpoint (same as the WordPress plugin) which works
+  /// without browser session auth. Token passed as query param too because
+  /// ExoPlayer strips the Authorization header when following HTTP redirects.
   String buildStreamUrl(int trackId) {
     final baseUrl = dio.options.baseUrl.replaceAll(RegExp(r'/$'), '');
-    return '$baseUrl/tracks/$trackId/stream';
+    final authHeader = dio.options.headers['Authorization'] as String?;
+    final token = authHeader?.replaceFirst('Bearer ', '');
+    return token != null
+        ? '$baseUrl/tracks/$trackId/download?token=$token'
+        : '$baseUrl/tracks/$trackId/download';
   }
 
-  /// Load a track for playback using the stream endpoint.
-  ///
-  /// Passes the Authorization header from [dio] so authenticated users can
-  /// stream tracks without being redirected to the login page.
   Future<void> loadTrack({
     required Track track,
     String quality = 'high',
   }) async {
     try {
-      final streamUrl = buildStreamUrl(track.id);
-
-      // Validate the stream URL before passing it to the audio player.
-      // Only HTTPS URLs from the trusted elsfm.com host are allowed.
-      final uri = Uri.tryParse(streamUrl);
-      if (uri == null || uri.scheme != 'https' || uri.host != 'www.elsfm.com') {
-        throw AudioStreamException('Invalid or untrusted stream URL: $streamUrl');
+      // Use resolved storage URL from track.src if available
+      final src = track.src;
+      final String url;
+      if (src.startsWith('https://') || src.startsWith('http://')) {
+        url = src;
+      } else {
+        url = buildStreamUrl(track.id);
       }
 
-      // Forward the Authorization header so just_audio can authenticate.
+      final uri = Uri.tryParse(url);
+      if (uri == null || uri.scheme != 'https' || uri.host != 'www.elsfm.com') {
+        throw AudioStreamException('Invalid or untrusted stream URL: $url');
+      }
+
       final authHeader = dio.options.headers['Authorization'] as String?;
       final headers = <String, String>{
-        'Accept': '*/*',
-        'User-Agent': dio.options.headers['User-Agent'] as String? ?? '',
+        'Accept': 'audio/*,*/*',
         if (authHeader != null) 'Authorization': authHeader,
       };
 
       await audioPlayer.setAudioSource(
-        AudioSource.uri(Uri.parse(streamUrl), headers: headers),
+        AudioSource.uri(uri, headers: headers),
       );
     } on AudioStreamException {
       rethrow;

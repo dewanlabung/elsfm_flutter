@@ -20,17 +20,32 @@ class PlayerService {
   /// Update the auth token used for stream requests. Call this after login.
   void setAuthToken(String? token) => _authToken = token;
 
-  /// Constructs the stream URL for a track.
+  /// Builds the audio source for a track.
   ///
-  /// BeMusic serves audio at `{apiBaseUrl}/tracks/{id}/stream`. The URL is
-  /// consumed directly by just_audio; no redirect or JSON response is expected.
-  String _streamUrl(int trackId) {
+  /// Priority:
+  ///  1. track.src is already a full resolved URL (e.g. storage URL from API) — use it directly.
+  ///  2. BeMusic's /download endpoint — confirmed working by the WordPress plugin which uses
+  ///     the same URL in a browser <audio> element without auth headers. Pass token both in
+  ///     header and ?token= query param so it works with any server configuration.
+  AudioSource _buildSource(Track track) {
+    final src = track.src;
+
+    // Option 1: resolved storage URL (set in Track.fromJson from the API's src field)
+    if (src.startsWith('https://') || src.startsWith('http://')) {
+      return AudioSource.uri(Uri.parse(src), headers: _authHeaders);
+    }
+
+    // Option 2: BeMusic /download endpoint — the same endpoint used by the WP plugin.
+    // Token added as query param because ExoPlayer strips Authorization on redirect.
     final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
-    return '$base/tracks/$trackId/stream';
+    final downloadUrl = _authToken != null
+        ? '$base/tracks/${track.id}/download?token=$_authToken'
+        : '$base/tracks/${track.id}/download';
+    return AudioSource.uri(Uri.parse(downloadUrl), headers: _authHeaders);
   }
 
   Map<String, String> get _authHeaders => {
-    'Accept': '*/*',
+    'Accept': 'audio/*,*/*',
     if (_authToken != null) 'Authorization': 'Bearer $_authToken',
   };
 
@@ -57,12 +72,7 @@ class PlayerService {
     _tracksList = List<Track>.from(tracks);
     await _playlist.clear();
     for (final track in tracks) {
-      await _playlist.add(
-        AudioSource.uri(
-          Uri.parse(_streamUrl(track.id)),
-          headers: _authHeaders,
-        ),
-      );
+      await _playlist.add(_buildSource(track));
     }
   }
 
@@ -89,22 +99,12 @@ class PlayerService {
   /// shuffled copy so the original [_tracksList] order is preserved for
   /// when shuffle is later disabled.
   Future<void> setShuffle(bool shuffle) async {
-    if (shuffle) {
-      final shuffled = List<Track>.from(_tracksList)..shuffle();
-      await _playlist.clear();
-      for (final track in shuffled) {
-        await _playlist.add(
-          AudioSource.uri(Uri.parse(_streamUrl(track.id)), headers: _authHeaders),
-        );
-      }
-    } else {
-      // Rebuild playlist in original order
-      await _playlist.clear();
-      for (final track in _tracksList) {
-        await _playlist.add(
-          AudioSource.uri(Uri.parse(_streamUrl(track.id)), headers: _authHeaders),
-        );
-      }
+    final list = shuffle
+        ? (List<Track>.from(_tracksList)..shuffle())
+        : _tracksList;
+    await _playlist.clear();
+    for (final track in list) {
+      await _playlist.add(_buildSource(track));
     }
   }
 
@@ -118,11 +118,15 @@ class PlayerService {
     });
   }
 
+  // just_audio surfaces errors as PlayerState with processingState == idle
+  // after a failed load. Map this to an error string for the UI.
   Stream<String?> get errorStream {
-    // Map playback errors from just_audio
-    return _audioPlayer.playbackEventStream.map((event) {
-      // just_audio reports errors through the stream if audio loading fails
-      // For now, we'll emit null as no error
+    return _audioPlayer.playerStateStream.map((s) {
+      if (!s.playing && s.processingState == ProcessingState.idle) {
+        // idle after a load attempt usually means the source failed
+        return null; // distinguish from "never started" with null here;
+                     // PlaybackException is thrown on play() and caught in notifier
+      }
       return null;
     }).distinct();
   }

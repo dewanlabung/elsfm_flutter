@@ -45,13 +45,18 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
     final queueIds = tracks.map((t) => t.id).toList();
-    state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex);
-    await playerService.setQueue(tracks);
-    await playerService.seek(Duration.zero);
-    if (startIndex > 0) {
-      await playerService.audioPlayer.seek(Duration.zero, index: startIndex);
+    state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex, error: null);
+    try {
+      await playerService.setQueue(tracks);
+      if (startIndex > 0) {
+        await playerService.audioPlayer.seek(Duration.zero, index: startIndex);
+      } else {
+        await playerService.seek(Duration.zero);
+      }
+      await playerService.play();
+    } catch (e) {
+      state = state.copyWith(error: 'Cannot play track: $e');
     }
-    await playerService.play();
   }
 
   /// Convenience method to play a single track immediately.
