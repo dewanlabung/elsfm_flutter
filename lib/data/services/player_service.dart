@@ -45,7 +45,7 @@ class PlayerService {
   }
 
   Map<String, String> get _authHeaders => {
-    'Accept': 'audio/*,*/*',
+    'Accept': 'application/json',
     if (_authToken != null) 'Authorization': 'Bearer $_authToken',
   };
 
