@@ -123,7 +123,7 @@ class PlayerService {
   Future<void> play() async {
     if (kDebugMode) debugPrint('[PlayerService] play() called');
     try {
-      await _audioPlayer.play(AssetSource('')); // Resume playback
+      await _audioPlayer.resume(); // Resume playback
       if (kDebugMode) debugPrint('[PlayerService] play() succeeded');
     } catch (e) {
       if (kDebugMode) debugPrint('[PlayerService] play() failed: $e');

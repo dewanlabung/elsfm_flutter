@@ -22,7 +22,7 @@ dependencies:
   path_provider: ^2.0.0
 
   # Audio (using audio_players with native ExoPlayer for better compatibility)
-  audio_players: ^4.1.0
+  audio_players: ^3.1.0
   audio_service: ^0.18.16
   audio_session: ^0.1.25
 
