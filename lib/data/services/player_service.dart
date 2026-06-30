@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
@@ -18,7 +19,11 @@ class PlayerService {
   String? _authToken;
 
   /// Update the auth token used for stream requests. Call this after login.
-  void setAuthToken(String? token) => _authToken = token;
+  void setAuthToken(String? token) {
+    _authToken = token;
+    final preview = token != null ? '${token.substring(0, min(20, token.length))}...' : 'null';
+    print('[PlayerService] Auth token set: $preview');
+  }
 
   /// Builds the audio source for a track.
   ///
@@ -29,9 +34,14 @@ class PlayerService {
   ///     header and ?token= query param so it works with any server configuration.
   AudioSource _buildSource(Track track) {
     final src = track.src;
+    final hasToken = _authToken != null;
+    print('[PlayerService] Building source for track: ${track.name}');
+    print('[PlayerService]   Auth token present: $hasToken');
+    print('[PlayerService]   Headers: ${_authHeaders.keys.join(', ')}');
 
     // Option 1: resolved storage URL (set in Track.fromJson from the API's src field)
     if (src.startsWith('https://') || src.startsWith('http://')) {
+      print('[PlayerService]   Using direct URL: $src');
       return AudioSource.uri(Uri.parse(src), headers: _authHeaders);
     }
 
@@ -41,6 +51,7 @@ class PlayerService {
     final downloadUrl = _authToken != null
         ? '$base/tracks/${track.id}/download?token=$_authToken'
         : '$base/tracks/${track.id}/download';
+    print('[PlayerService]   Using /download endpoint: $downloadUrl');
     return AudioSource.uri(Uri.parse(downloadUrl), headers: _authHeaders);
   }
 

@@ -147,10 +147,16 @@ final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
   try {
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: 'auth_token');
+    print('[PlayerService] Retrieved token from secure storage: ${token != null ? 'YES' : 'NO'}');
     if (token != null) {
+      print('[PlayerService] Token length: ${token.length} chars');
       playerService.setAuthToken(token);
+    } else {
+      print('[PlayerService] ⚠️  No token found in secure storage - streaming will fail if user is not authenticated');
     }
-  } catch (_) {}
+  } catch (e) {
+    print('[PlayerService] ❌ Error reading token from secure storage: $e');
+  }
 
   await playerService.init();
   ref.onDispose(() => playerService.dispose());
@@ -166,13 +172,21 @@ final playerProvider = StateNotifierProvider<PlayerNotifier, player_models.Playe
 
   // Keep auth token in sync with auth state so streams work after login
   ref.listen<AuthStateData>(authNotifierProvider, (previous, next) {
+    print('[PlayerService] Auth state changed: ${previous?.state} → ${next.state}');
     if (next.state == AuthState.authenticated) {
+      print('[PlayerService] User authenticated - refreshing token');
       playerServiceAsync.whenData((playerService) async {
         const storage = FlutterSecureStorage();
         final token = await storage.read(key: 'auth_token');
-        playerService.setAuthToken(token);
+        if (token != null) {
+          print('[PlayerService] Token refreshed (${token.length} chars)');
+          playerService.setAuthToken(token);
+        } else {
+          print('[PlayerService] ⚠️  Token refresh failed - no token in storage');
+        }
       });
     } else if (next.state == AuthState.unauthenticated) {
+      print('[PlayerService] User logged out - clearing token');
       playerServiceAsync.whenData((playerService) {
         playerService.setAuthToken(null);
       });
