@@ -53,68 +53,95 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
   }
 
   Future<void> _initAuth() async {
+    debugPrint('[Auth] Starting _initAuth()');
     state = state.copyWith(state: AuthState.authenticating);
 
     // 1. Try biometric login first if enabled
     try {
+      debugPrint('[Auth] Attempting biometric authentication...');
       final biometricToken = await biometricService.authenticateWithBiometric();
       if (biometricToken != null) {
+        debugPrint('[Auth] Biometric token obtained, setting in authService');
         authService.setToken(biometricToken);
         final user = await authService.getCurrentUser();
         await _cacheUser(user);
+        debugPrint('[Auth] Biometric login successful: ${user.email}');
         state = AuthStateData.authenticated(user);
         return;
       }
+      debugPrint('[Auth] No biometric token available');
     } catch (e) {
-      if (kDebugMode) debugPrint('Biometric init error: $e');
+      debugPrint('[Auth] ❌ Biometric init error: $e');
     }
 
     // 2. Try saved token
+    debugPrint('[Auth] Reading token from secure storage...');
     final savedToken = await secureStorage.read(key: _tokenKey);
     if (savedToken != null) {
+      debugPrint('[Auth] ✅ Token found in secure storage (${savedToken.length} chars)');
+      debugPrint('[Auth] Setting token in authService...');
       authService.setToken(savedToken);
       try {
+        debugPrint('[Auth] Calling getCurrentUser() to verify token...');
         final user = await authService.getCurrentUser();
         await _cacheUser(user);
+        debugPrint('[Auth] ✅ Token valid! User authenticated: ${user.email}');
         state = AuthStateData.authenticated(user);
         return;
       } on DioException catch (e) {
+        debugPrint('[Auth] ❌ API call failed: ${e.response?.statusCode} - ${e.message}');
         if (e.response?.statusCode == 401) {
+          debugPrint('[Auth] Token expired (401), clearing from storage');
           // Token invalid — force re-login
           await secureStorage.delete(key: _tokenKey);
           await _clearCachedUser();
           authService.clearToken();
         } else {
+          debugPrint('[Auth] Network error, attempting to restore from cache...');
           // Network error — restore from cache so user stays logged in offline
           final cached = await _getCachedUser();
           if (cached != null) {
+            debugPrint('[Auth] ✅ Restored from cache: ${cached.email}');
             state = AuthStateData.authenticated(cached);
             return;
           }
         }
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[Auth] ❌ Unexpected error during token verification: $e');
         // Any other error — try cache
         final cached = await _getCachedUser();
         if (cached != null) {
+          debugPrint('[Auth] ✅ Restored from cache: ${cached.email}');
           state = AuthStateData.authenticated(cached);
           return;
         }
       }
+    } else {
+      debugPrint('[Auth] ❌ No token found in secure storage');
     }
 
+    debugPrint('[Auth] Unauthenticated - showing login screen');
     state = AuthStateData.unauthenticated();
   }
 
   Future<void> loginWithEmail(String email, String password) async {
     try {
+      debugPrint('[Auth] loginWithEmail starting for: $email');
       state = state.copyWith(state: AuthState.authenticating);
       final result = await authService.loginWithEmail(email, password);
+      debugPrint('[Auth] Login API call successful');
       if (result.token != null) {
+        debugPrint('[Auth] Token received (${result.token!.length} chars), saving to storage...');
         await secureStorage.write(key: _tokenKey, value: result.token);
+        debugPrint('[Auth] ✅ Token saved to secure storage');
+      } else {
+        debugPrint('[Auth] ❌ No token in login response!');
       }
       await _cacheUser(result.user);
+      debugPrint('[Auth] ✅ User cached: ${result.user.email}');
       state = AuthStateData.authenticated(result.user);
     } catch (e) {
+      debugPrint('[Auth] ❌ Login failed: $e');
       state = AuthStateData.error(e.toString());
     }
   }
@@ -138,23 +165,31 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
   /// Falls back to WebView if native sign-in fails (e.g., missing google-services.json).
   Future<bool> loginWithGoogle() async {
     try {
+      debugPrint('[Auth] Google Sign-In starting...');
       state = state.copyWith(state: AuthState.authenticating);
       final service = GoogleSignInService();
       final googleResult = await service.signInWithGoogle();
+      debugPrint('[Auth] Google account selected, exchanging for BeMusic token...');
 
       final result = await authService.loginWithGoogleToken(
         accessToken: googleResult.accessToken,
         idToken: googleResult.idToken,
       );
+      debugPrint('[Auth] ✅ Google OAuth exchange successful');
 
       if (result.token != null) {
+        debugPrint('[Auth] Token received (${result.token!.length} chars), saving to storage...');
         await secureStorage.write(key: _tokenKey, value: result.token);
+        debugPrint('[Auth] ✅ Token saved to secure storage');
+      } else {
+        debugPrint('[Auth] ❌ No token in Google login response!');
       }
       await _cacheUser(result.user);
+      debugPrint('[Auth] ✅ Google login successful: ${result.user.email}');
       state = AuthStateData.authenticated(result.user);
       return true; // native sign-in succeeded
     } catch (e) {
-      if (kDebugMode) debugPrint('Native Google Sign-In failed: $e');
+      debugPrint('[Auth] ❌ Native Google Sign-In failed: $e');
       state = AuthStateData.unauthenticated(); // reset so UI shows sign-in options
       return false; // caller should fall back to WebView
     }

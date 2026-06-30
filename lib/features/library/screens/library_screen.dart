@@ -599,7 +599,12 @@ class _GenreCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () {},
+        onTap: () {
+          // TODO: Navigate to genre detail page
+          // For now, genres are listed but not clickable in detail view
+          // Would need: context.push('/genre/$id') after adding genre ID to model
+          debugPrint('[Genre] Tapped: $name');
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
