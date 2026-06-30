@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -39,6 +40,30 @@ final dioProvider = FutureProvider<Dio>((ref) async {
         responseBody: true,
         error: true,
         logPrint: (obj) => debugPrint(obj.toString()),
+      ),
+    );
+
+    // Add custom auth logging interceptor
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final token = options.headers['Authorization'];
+          debugPrint('[API-Auth] ${options.method.toUpperCase()} ${options.path}');
+          debugPrint('[API-Auth]   BaseURL: ${options.baseUrl}');
+          debugPrint('[API-Auth]   Full URL: ${options.uri}');
+          debugPrint('[API-Auth]   Auth Header: ${token != null ? '${(token as String).substring(0, min(20, (token as String).length))}...' : 'NONE'}');
+          debugPrint('[API-Auth]   Params: ${options.queryParameters}');
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          debugPrint('[API-Response] ${response.statusCode} - ${response.requestOptions.path}');
+          return handler.next(response);
+        },
+        onError: (error, handler) {
+          debugPrint('[API-Error] ${error.response?.statusCode} - ${error.requestOptions.path}');
+          debugPrint('[API-Error]   Message: ${error.message}');
+          return handler.next(error);
+        },
       ),
     );
   }

@@ -234,10 +234,15 @@ class AuthService {
   }
 
   void setToken(String token) {
+    final preview = token.length > 20 ? '${token.substring(0, 20)}...' : token;
+    debugPrint('[AuthService] Setting token: $preview (${token.length} chars)');
     dio.options.headers['Authorization'] = 'Bearer $token';
+    debugPrint('[AuthService] Authorization header set: ${dio.options.headers['Authorization'] != null}');
   }
 
   void clearToken() {
+    debugPrint('[AuthService] Clearing token');
     dio.options.headers.remove('Authorization');
+    debugPrint('[AuthService] Authorization header cleared');
   }
 }
