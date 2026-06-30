@@ -1,7 +1,7 @@
+import 'package:audio_players/audio_players.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
 import '../models/player_state.dart' as ps;
 import '../models/track.dart';
 import 'audio_service_handler.dart';
@@ -10,12 +10,12 @@ import '../../config/app_config.dart';
 
 class PlayerService {
   final AudioPlayer _audioPlayer = AudioPlayer();
-  late ConcatenatingAudioSource _playlist;
   AudioHandler? _audioHandler;
   final SleepTimerService _sleepTimer = SleepTimerService();
   List<Track> _tracksList = [];
+  int _currentIndex = 0;
 
-  /// Optional Bearer token forwarded to just_audio for authenticated streaming.
+  /// Optional Bearer token forwarded to audio_players for authenticated streaming.
   String? _authToken;
 
   /// Update the auth token used for stream requests. Call this after login.
@@ -26,36 +26,32 @@ class PlayerService {
     }
   }
 
-  /// Builds the audio source for a track.
-  ///
+  /// Builds the best URL for streaming a track.
   /// Priority:
-  ///  1. track.src is already a full resolved URL (e.g. storage URL from API) — use it directly.
-  ///  2. BeMusic's /download endpoint — confirmed working by the WordPress plugin which uses
-  ///     the same URL in a browser <audio> element without auth headers. Pass token both in
-  ///     header and ?token= query param so it works with any server configuration.
-  AudioSource _buildSource(Track track) {
+  ///  1. track.src is already a full resolved URL (e.g. storage URL from API)
+  ///  2. BeMusic's /download endpoint with token as query param
+  String _buildStreamUrl(Track track) {
     final src = track.src;
 
     // Option 1: resolved storage URL (set in Track.fromJson from the API's src field)
     if (src.startsWith('https://') || src.startsWith('http://')) {
       if (kDebugMode) {
         debugPrint('[PlayerService] Using direct URL: $src');
-        debugPrint('[PlayerService] Auth headers: $_authHeaders');
       }
-      return AudioSource.uri(Uri.parse(src), headers: _authHeaders);
+      return src;
     }
 
-    // Option 2: BeMusic /download endpoint — the same endpoint used by the WP plugin.
-    // Token added as query param because ExoPlayer strips Authorization on redirect.
+    // Option 2: BeMusic /download endpoint with token as query param
+    // Token in query param because some servers strip Authorization header on redirect
     final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
     final downloadUrl = _authToken != null
         ? '$base/tracks/${track.id}/download?token=$_authToken'
         : '$base/tracks/${track.id}/download';
+
     if (kDebugMode) {
       debugPrint('[PlayerService] Using /download endpoint: $downloadUrl');
-      debugPrint('[PlayerService] Auth headers: $_authHeaders');
     }
-    return AudioSource.uri(Uri.parse(downloadUrl), headers: _authHeaders);
+    return downloadUrl;
   }
 
   Map<String, String> get _authHeaders => {
@@ -67,8 +63,18 @@ class PlayerService {
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
 
-    _playlist = ConcatenatingAudioSource(children: []);
-    await _audioPlayer.setAudioSource(_playlist);
+    // Listen to player events
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (kDebugMode) debugPrint('[PlayerService] Player state: $state');
+    });
+
+    _audioPlayer.onDurationChanged.listen((duration) {
+      if (kDebugMode) debugPrint('[PlayerService] Duration: ${duration.inSeconds}s');
+    });
+
+    _audioPlayer.onPositionChanged.listen((position) {
+      // Log periodically, not every update
+    });
 
     // Initialize audio service for lock screen controls
     if (tracks != null) {
@@ -78,19 +84,37 @@ class PlayerService {
       _audioHandler = await initAudioService(_audioPlayer, tracks: _tracksList);
     } catch (e) {
       // Audio service initialization failure is non-fatal
-      // The app continues to work without lock screen controls
+      if (kDebugMode) debugPrint('[PlayerService] Audio service init failed: $e');
     }
   }
 
-  Future<void> setQueue(List<Track> tracks) async {
-    if (kDebugMode) debugPrint('[PlayerService] setQueue called with ${tracks.length} tracks');
+  /// Set the queue and optionally start playing
+  Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
+    if (kDebugMode) debugPrint('[PlayerService] setQueue called with ${tracks.length} tracks, startIndex: $startIndex');
+
     _tracksList = List<Track>.from(tracks);
-    await _playlist.clear();
-    for (final track in tracks) {
-      if (kDebugMode) debugPrint('[PlayerService] Adding track: ${track.name} (id: ${track.id}, src: ${track.src})');
-      await _playlist.add(_buildSource(track));
+    _currentIndex = startIndex;
+
+    if (_tracksList.isEmpty) {
+      if (kDebugMode) debugPrint('[PlayerService] Queue is empty');
+      return;
     }
-    if (kDebugMode) debugPrint('[PlayerService] Queue setup complete');
+
+    // Load the first track (or startIndex track)
+    final track = _tracksList[_currentIndex];
+    final url = _buildStreamUrl(track);
+
+    if (kDebugMode) {
+      debugPrint('[PlayerService] Loading track: ${track.name} from $url');
+    }
+
+    try {
+      await _audioPlayer.setSource(UrlSource(url));
+      if (kDebugMode) debugPrint('[PlayerService] Queue setup complete');
+    } catch (e) {
+      if (kDebugMode) debugPrint('[PlayerService] Failed to load track: $e');
+      rethrow;
+    }
   }
 
   /// Returns an unmodifiable view of the current queue.
@@ -99,8 +123,8 @@ class PlayerService {
   Future<void> play() async {
     if (kDebugMode) debugPrint('[PlayerService] play() called');
     try {
-      await _audioPlayer.play();
-      if (kDebugMode) debugPrint('[PlayerService] play() succeeded, state: ${_audioPlayer.playerState}');
+      await _audioPlayer.play(AssetSource('')); // Resume playback
+      if (kDebugMode) debugPrint('[PlayerService] play() succeeded');
     } catch (e) {
       if (kDebugMode) debugPrint('[PlayerService] play() failed: $e');
       rethrow;
@@ -122,60 +146,79 @@ class PlayerService {
     if (kDebugMode) debugPrint('[PlayerService] seek() to ${position.inSeconds}s');
     await _audioPlayer.seek(position);
   }
-  Future<void> previous() => _audioPlayer.seekToPrevious();
-  Future<void> next() => _audioPlayer.seekToNext();
 
-  Future<void> setPlaybackRate(double rate) => _audioPlayer.setSpeed(rate);
+  Future<void> previous() async {
+    if (_currentIndex > 0) {
+      _currentIndex--;
+      if (_tracksList.isNotEmpty) {
+        final track = _tracksList[_currentIndex];
+        final url = _buildStreamUrl(track);
+        await _audioPlayer.setSource(UrlSource(url));
+        await play();
+      }
+    }
+  }
 
-  Future<void> setLoopMode(LoopMode mode) => _audioPlayer.setLoopMode(mode);
+  Future<void> next() async {
+    if (_currentIndex < _tracksList.length - 1) {
+      _currentIndex++;
+      final track = _tracksList[_currentIndex];
+      final url = _buildStreamUrl(track);
+      await _audioPlayer.setSource(UrlSource(url));
+      await play();
+    }
+  }
 
-  /// Enables or disables shuffle. When enabling, rebuilds the playlist from a
-  /// shuffled copy so the original [_tracksList] order is preserved for
-  /// when shuffle is later disabled.
+  Future<void> setPlaybackRate(double rate) => _audioPlayer.setPlaybackRate(rate);
+
+  Future<void> setLoopMode(LoopMode mode) => _audioPlayer.setReleaseMode(
+    mode == LoopMode.all ? ReleaseMode.loop : ReleaseMode.release,
+  );
+
+  /// Enables or disables shuffle (basic implementation)
   Future<void> setShuffle(bool shuffle) async {
-    final list = shuffle
-        ? (List<Track>.from(_tracksList)..shuffle())
-        : _tracksList;
-    await _playlist.clear();
-    for (final track in list) {
-      await _playlist.add(_buildSource(track));
+    if (shuffle && _tracksList.length > 1) {
+      final shuffled = List<Track>.from(_tracksList)..shuffle();
+      await setQueue(shuffled);
+    } else {
+      await setQueue(_tracksList);
     }
   }
 
   Stream<ps.PlayerState> get playerStateStream {
-    return _audioPlayer.playerStateStream.map((state) {
+    return _audioPlayer.onPlayerStateChanged.map((state) {
       return ps.PlayerState(
         queue: [],
-        isPlaying: state.playing,
-        isLoading: state.processingState == ProcessingState.loading,
+        isPlaying: state == PlayerState.playing,
+        isLoading: state == PlayerState.playing,
       );
     });
   }
 
-  // just_audio surfaces errors as PlayerState with processingState == idle
-  // after a failed load. Map this to an error string for the UI.
   Stream<String?> get errorStream {
-    return _audioPlayer.playerStateStream.map((s) {
-      if (!s.playing && s.processingState == ProcessingState.idle) {
-        // idle after a load attempt usually means the source failed
-        return null; // distinguish from "never started" with null here;
-                     // PlaybackException is thrown on play() and caught in notifier
-      }
-      return null;
-    }).distinct();
+    return _audioPlayer.onPlayerComplete.map((_) => null);
   }
 
-  Stream<int?> get currentIndexStream => _audioPlayer.currentIndexStream;
-  Stream<Duration> get positionStream => _audioPlayer.positionStream;
-  Stream<Duration?> get durationStream => _audioPlayer.durationStream;
+  Stream<int?> get currentIndexStream {
+    return Stream.value(_currentIndex);
+  }
+
+  Stream<Duration> get positionStream {
+    return _audioPlayer.onPositionChanged.map((duration) => duration);
+  }
+
+  Stream<Duration?> get durationStream {
+    return _audioPlayer.onDurationChanged.map((duration) => duration);
+  }
 
   AudioPlayer get audioPlayer => _audioPlayer;
   AudioHandler? get audioHandler => _audioHandler;
   SleepTimerService get sleepTimer => _sleepTimer;
 
+  /// Get current position
+  Duration get currentPosition => _audioPlayer.currentPosition;
+
   /// Start a sleep timer that will auto-pause after [duration].
-  ///
-  /// [duration] - How long until playback pauses (e.g., Duration(minutes: 5))
   void startSleepTimer(Duration duration) {
     _sleepTimer.startTimer(
       duration: duration,
@@ -201,6 +244,6 @@ class PlayerService {
     if (_audioHandler != null) {
       await _audioHandler!.stop();
     }
-    await _audioPlayer.dispose();
+    await _audioPlayer.release();
   }
 }

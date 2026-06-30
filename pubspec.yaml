@@ -21,8 +21,8 @@ dependencies:
   cookie_jar: ^3.0.0
   path_provider: ^2.0.0
 
-  # Audio
-  just_audio: ^0.9.39
+  # Audio (using audio_players with native ExoPlayer for better compatibility)
+  audio_players: ^4.1.0
   audio_service: ^0.18.16
   audio_session: ^0.1.25
 

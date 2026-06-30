@@ -1,7 +1,7 @@
+import 'package:audio_players/audio_players.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
 import '../../../data/models/track.dart';
 import '../../../data/services/player_service.dart';
@@ -49,12 +49,8 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
     final queueIds = tracks.map((t) => t.id).toList();
     state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex, error: null);
     try {
-      await playerService.setQueue(tracks);
-      if (startIndex > 0) {
-        await playerService.audioPlayer.seek(Duration.zero, index: startIndex);
-      } else {
-        await playerService.seek(Duration.zero);
-      }
+      await playerService.setQueue(tracks, startIndex: startIndex);
+      await playerService.seek(Duration.zero);
       if (kDebugMode) debugPrint('[PlayerNotifier] About to call playerService.play()');
       await playerService.play();
       if (kDebugMode) debugPrint('[PlayerNotifier] playerService.play() succeeded');
@@ -100,7 +96,7 @@ class PlayerNotifier extends StateNotifier<player_models.PlayerState> {
     if (state.hasNext) {
       await playerService.next();
     } else if (state.repeatMode == player_models.RepeatMode.all) {
-      await playerService.audioPlayer.seek(Duration.zero, index: 0);
+      await playerService.seek(Duration.zero);
       await play();
     }
   }
