@@ -577,7 +577,11 @@ class _GenresTab extends ConsumerWidget {
             final genre = genres[i];
             final color = _palette[i % _palette.length];
             return _GenreCard(
-                name: genre.label, color: color, imageUrl: genre.image);
+              id: genre.id,
+              name: genre.label,
+              color: color,
+              imageUrl: genre.image,
+            );
           },
         );
       },
@@ -586,11 +590,16 @@ class _GenresTab extends ConsumerWidget {
 }
 
 class _GenreCard extends StatelessWidget {
+  final int id;
   final String name;
   final Color color;
   final String? imageUrl;
-  const _GenreCard(
-      {required this.name, required this.color, this.imageUrl});
+  const _GenreCard({
+    required this.id,
+    required this.name,
+    required this.color,
+    this.imageUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -600,10 +609,8 @@ class _GenreCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () {
-          // TODO: Navigate to genre detail page
-          // For now, genres are listed but not clickable in detail view
-          // Would need: context.push('/genre/$id') after adding genre ID to model
-          debugPrint('[Genre] Tapped: $name');
+          debugPrint('[Genre] Tapped: $name (id: $id)');
+          context.push('/genre/$id');
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

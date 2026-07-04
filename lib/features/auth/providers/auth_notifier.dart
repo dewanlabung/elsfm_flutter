@@ -77,12 +77,14 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
     // 2. Try saved token
     debugPrint('[Auth] Reading token from secure storage...');
     final savedToken = await secureStorage.read(key: _tokenKey);
-    if (savedToken != null) {
+    if (savedToken != null && savedToken.isNotEmpty) {
       debugPrint('[Auth] ✅ Token found in secure storage (${savedToken.length} chars)');
       debugPrint('[Auth] Setting token in authService...');
       authService.setToken(savedToken);
+
+      // Try to get fresh user data, but don't fail if network is down
       try {
-        debugPrint('[Auth] Calling getCurrentUser() to verify token...');
+        debugPrint('[Auth] Verifying token with API...');
         final user = await authService.getCurrentUser();
         await _cacheUser(user);
         debugPrint('[Auth] ✅ Token valid! User authenticated: ${user.email}');
@@ -92,23 +94,21 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
         debugPrint('[Auth] ❌ API call failed: ${e.response?.statusCode} - ${e.message}');
         if (e.response?.statusCode == 401) {
           debugPrint('[Auth] Token expired (401), clearing from storage');
-          // Token invalid — force re-login
           await secureStorage.delete(key: _tokenKey);
           await _clearCachedUser();
           authService.clearToken();
         } else {
-          debugPrint('[Auth] Network error, attempting to restore from cache...');
-          // Network error — restore from cache so user stays logged in offline
+          debugPrint('[Auth] Network error, restoring from cache...');
           final cached = await _getCachedUser();
           if (cached != null) {
-            debugPrint('[Auth] ✅ Restored from cache: ${cached.email}');
+            debugPrint('[Auth] ✅ Restored user from cache: ${cached.email}');
+            debugPrint('[Auth] ℹ️  Token will be verified on next network request');
             state = AuthStateData.authenticated(cached);
             return;
           }
         }
       } catch (e) {
-        debugPrint('[Auth] ❌ Unexpected error during token verification: $e');
-        // Any other error — try cache
+        debugPrint('[Auth] ❌ Unexpected error: $e');
         final cached = await _getCachedUser();
         if (cached != null) {
           debugPrint('[Auth] ✅ Restored from cache: ${cached.email}');
@@ -283,15 +283,39 @@ class AuthNotifier extends StateNotifier<AuthStateData> {
 
 final secureStorageProvider = Provider((ref) => const FlutterSecureStorage());
 
+// Cache the Dio instance to ensure consistent token state across app lifecycle
+Dio? _cachedDioInstance;
+
 final authServiceProvider = Provider((ref) {
   try {
     return ref.watch(dioProvider).when(
-      data: (dio) => AuthService(dio),
-      loading: () => AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'))),
-      error: (err, st) => throw err,
+      data: (dio) {
+        _cachedDioInstance = dio;
+        debugPrint('[AuthService] Using Dio from dioProvider');
+        return AuthService(dio);
+      },
+      loading: () {
+        debugPrint('[AuthService] dioProvider loading, using cached instance');
+        if (_cachedDioInstance != null) {
+          return AuthService(_cachedDioInstance!);
+        }
+        final fallback = Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'));
+        _cachedDioInstance = fallback;
+        return AuthService(fallback);
+      },
+      error: (err, st) {
+        debugPrint('[AuthService] dioProvider error: $err');
+        throw err;
+      },
     );
   } catch (e) {
-    return AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1')));
+    debugPrint('[AuthService] Exception in authServiceProvider: $e');
+    if (_cachedDioInstance != null) {
+      return AuthService(_cachedDioInstance!);
+    }
+    final fallback = Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'));
+    _cachedDioInstance = fallback;
+    return AuthService(fallback);
   }
 });
 
