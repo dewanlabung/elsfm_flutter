@@ -7,7 +7,7 @@ import '../widgets/dev_mode_toggle.dart';
 import '../widgets/email_field.dart';
 import '../widgets/password_field.dart';
 import '../widgets/credential_saver.dart';
-import 'google_oauth_screen.dart';
+// google_oauth_screen.dart is no longer used — native SDK handles Google auth
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -68,17 +68,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _handleGoogleLogin() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        child: GoogleOAuthScreen(
-          onSuccess: () {
-            ref.read(authNotifierProvider.notifier).loginWithGoogle(context);
-          },
-        ),
-      ),
-    );
+    // Use native Google Sign-In SDK directly — no WebView needed on mobile.
+    // The google_sign_in package shows the system account picker, gets an
+    // OAuth access token, then we exchange it with the BeMusic backend at
+    // /api/v1/auth/social/google/callback?tokenFromApi={accessToken}.
+    ref.read(authNotifierProvider.notifier).loginWithGoogle(context);
   }
 
   @override

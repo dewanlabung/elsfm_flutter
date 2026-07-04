@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../data/models/track.dart';
+import '../../../data/models/download.dart';
+import '../../../config/app_config.dart';
+import '../../downloads/providers/downloads_provider.dart';
 import '../../library/providers/library_provider.dart';
 import '../../player/providers/player_notifier.dart';
 
@@ -124,6 +127,7 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
             _isLiked ? 'Remove from library' : 'Like',
             _likeLoading ? null : () => _toggleLike(context),
           ),
+          _item(Icons.download, 'Download', () => _downloadTrack(context)),
           _item(Icons.share, 'Share', () {
             Navigator.pop(context);
             Share.share(
@@ -169,6 +173,43 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
       onTap: onTap,
       enabled: onTap != null,
     );
+  }
+
+  String _resolveDownloadUrl(Track track) {
+    final src = track.src.trim();
+    if (src.isNotEmpty) {
+      if (src.startsWith('http://') || src.startsWith('https://')) return src;
+      final base = AppConfig.webBaseUrl.replaceAll(RegExp(r'/+$'), '');
+      return '$base/$src';
+    }
+    final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    return '$apiBase/tracks/${track.id}/stream';
+  }
+
+  Future<void> _downloadTrack(BuildContext ctx) async {
+    Navigator.pop(ctx);
+    try {
+      final svc = await ref.read(downloadServiceProvider.future);
+      final download = Download(
+        id: widget.track.id,
+        trackId: widget.track.id,
+        trackName: widget.track.name,
+        downloadUrl: _resolveDownloadUrl(widget.track),
+        createdAt: DateTime.now(),
+      );
+      await svc.enqueueDownload(download);
+      if (mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text('Downloading ${widget.track.name}…')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _toggleLike(BuildContext ctx) async {

@@ -35,7 +35,19 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
 
   void _initListeners(PlayerService service) {
     service.currentIndexStream.listen((index) {
+      final prevIndex = state.currentIndex;
       state = state.copyWith(currentIndex: index);
+      // Log play when track actually changes (not on first load — setQueue logs that)
+      if (index != null &&
+          prevIndex != null &&
+          index != prevIndex &&
+          state.tracks != null &&
+          index < state.tracks!.length) {
+        final trackId = state.tracks![index].id;
+        ref.read(dioProvider.future).then((dio) {
+          apiClientFromDio(dio).logTrackPlay(trackId);
+        }).catchError((_) {});
+      }
     });
 
     service.positionStream.listen((position) {

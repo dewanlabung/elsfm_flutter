@@ -213,10 +213,43 @@ class _ArtistsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _EmptyState(
-      icon: Icons.person_outline,
-      message: 'No followed artists',
-      hint: 'Follow artists to see them here',
+    final artistsAsync = ref.watch(followedArtistsProvider);
+
+    return artistsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => _EmptyState(
+        icon: Icons.error_outline,
+        message: 'Could not load followed artists',
+        hint: e.toString(),
+      ),
+      data: (artists) {
+        if (artists.isEmpty) {
+          return const _EmptyState(
+            icon: Icons.person_outline,
+            message: 'No followed artists',
+            hint: 'Follow artists to see them here',
+          );
+        }
+        return ListView.builder(
+          itemCount: artists.length,
+          itemBuilder: (context, i) {
+            final artist = artists[i];
+            final imageUrl = artist.image ?? '';
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage: imageUrl.isNotEmpty
+                    ? NetworkImage(imageUrl)
+                    : null,
+                child: imageUrl.isEmpty
+                    ? const Icon(Icons.person)
+                    : null,
+              ),
+              title: Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              onTap: () => context.push('/artist/${artist.id}'),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -228,10 +261,46 @@ class _AlbumsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _EmptyState(
-      icon: Icons.album_outlined,
-      message: 'No saved albums',
-      hint: 'Save albums to access them quickly',
+    final albumsAsync = ref.watch(likedAlbumsProvider);
+
+    return albumsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => _EmptyState(
+        icon: Icons.error_outline,
+        message: 'Could not load saved albums',
+        hint: e.toString(),
+      ),
+      data: (albums) {
+        if (albums.isEmpty) {
+          return const _EmptyState(
+            icon: Icons.album_outlined,
+            message: 'No saved albums',
+            hint: 'Like an album to save it here',
+          );
+        }
+        return ListView.builder(
+          itemCount: albums.length,
+          itemBuilder: (context, i) {
+            final album = albums[i];
+            final img = album.image ?? '';
+            final imageUrl = img.startsWith('http')
+                ? img
+                : (img.isNotEmpty ? 'https://www.elsfm.com/$img' : '');
+            return ListTile(
+              leading: _TrackArt(imageUrl: imageUrl.isNotEmpty ? imageUrl : null),
+              title: Text(album.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: album.artists.isNotEmpty
+                  ? Text(
+                      album.artists.map((a) => a.name).join(', '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : null,
+              onTap: () => context.push('/album/${album.id}'),
+            );
+          },
+        );
+      },
     );
   }
 }

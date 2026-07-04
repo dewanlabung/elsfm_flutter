@@ -6,6 +6,8 @@ import 'package:elsfm/features/auth/providers/auth_notifier.dart';
 import '../services/library_service.dart';
 import 'package:elsfm/data/models/track.dart';
 import 'package:elsfm/data/models/playlist.dart';
+import 'package:elsfm/data/models/album.dart';
+import 'package:elsfm/data/models/artist.dart';
 
 /// Library repository provider — waits for Dio to be ready.
 final libraryRepositoryProvider =
@@ -41,6 +43,26 @@ final topTracksProvider =
     FutureProvider.family<List<Track>, String>((ref, period) async {
   final service = await ref.watch(libraryServiceProvider.future);
   return service.getTopTracks(period: period);
+});
+
+/// Liked albums provider
+final likedAlbumsProvider = FutureProvider<List<Album>>((ref) async {
+  final authState = ref.watch(authNotifierProvider);
+  final user = authState.user;
+  if (user == null) return [];
+  final api = await ref.watch(apiClientFutureProvider.future);
+  final result = await api.getLikedAlbums(user.id, perPage: 50);
+  return result.data;
+});
+
+/// Followed artists provider
+final followedArtistsProvider = FutureProvider<List<Artist>>((ref) async {
+  final authState = ref.watch(authNotifierProvider);
+  final user = authState.user;
+  if (user == null) return [];
+  final api = await ref.watch(apiClientFutureProvider.future);
+  final result = await api.getLikedArtists(user.id, perPage: 50);
+  return result.data;
 });
 
 /// User playlists provider — loads playlists owned by the current user.

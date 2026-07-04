@@ -194,8 +194,8 @@ class NowPlayingScreen extends ConsumerWidget {
                                     color: isFav ? Colors.red : Colors.white70,
                                   ),
                                   onPressed: () async {
-                                    final svc =
-                                        ref2.read(libraryServiceProvider);
+                                    final svc = await ref2
+                                        .read(libraryServiceProvider.future);
                                     final ntf = ref2
                                         .read(favoriteToggleProvider.notifier);
                                     if (isFav) {

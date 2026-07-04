@@ -97,6 +97,42 @@ class UserLibraryRepository {
     }
   }
 
+  /// Follow an artist
+  Future<void> followArtist(int artistId) async {
+    try {
+      await dio.post('/users/me/add-to-library', data: {
+        'likeables': [{'likeable_id': artistId, 'likeable_type': 'artist'}],
+      });
+    } on DioException { rethrow; }
+  }
+
+  /// Unfollow an artist
+  Future<void> unfollowArtist(int artistId) async {
+    try {
+      await dio.post('/users/me/remove-from-library', data: {
+        'likeables': [{'likeable_id': artistId, 'likeable_type': 'artist'}],
+      });
+    } on DioException { rethrow; }
+  }
+
+  /// Like an album
+  Future<void> likeAlbum(int albumId) async {
+    try {
+      await dio.post('/users/me/add-to-library', data: {
+        'likeables': [{'likeable_id': albumId, 'likeable_type': 'album'}],
+      });
+    } on DioException { rethrow; }
+  }
+
+  /// Unlike an album
+  Future<void> unlikeAlbum(int albumId) async {
+    try {
+      await dio.post('/users/me/remove-from-library', data: {
+        'likeables': [{'likeable_id': albumId, 'likeable_type': 'album'}],
+      });
+    } on DioException { rethrow; }
+  }
+
   /// Check if a song is favorited
   /// Authorization: User must be authenticated
   /// Endpoint: GET /api/v1/user/library/tracks/{trackId}/is-favorite

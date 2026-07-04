@@ -170,6 +170,20 @@ class ApiClient {
     );
   }
 
+  Future<PaginationResponse<Artist>> getLikedArtists(
+    int userId, {
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+        '/users/$userId/liked-artists',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Artist.fromJson(e as Map<String, dynamic>),
+    );
+  }
+
   Future<PaginationResponse<Playlist>> getUserPlaylists(
     int userId, {
     int page = 1,
