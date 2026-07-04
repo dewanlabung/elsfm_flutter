@@ -23,17 +23,24 @@ class PlayerService {
   /// Update the auth token used for stream requests. Call this after login.
   void setAuthToken(String? token) => _authToken = token;
 
-  /// Constructs the stream URL for a track.
+  /// Resolves the best playback URL for a track.
   ///
-  /// BeMusic serves audio at `{apiBaseUrl}/tracks/{id}/stream`. The URL is
-  /// consumed directly by just_audio; no redirect or JSON response is expected.
-  String _streamUrl(int trackId) {
-    final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
-    // BeMusic uses /tracks/{id}/stream for raw audio.
-    // We add the token as a query parameter for easier streaming if the
-    // server supports it, though headers are also sent.
-    final url = '$base/tracks/$trackId/stream';
-    return url.replaceFirst('http://', 'https://');
+  /// Priority:
+  ///   1. track.src — the direct storage path returned by the BeMusic API
+  ///      (e.g. "storage/track_media/xxx.mp3"). This is a static file served
+  ///      by Cloudflare with proper Content-Length and Accept-Ranges support,
+  ///      which lets ExoPlayer seek correctly without PHP middleware.
+  ///   2. Fallback: /api/v1/tracks/{id}/stream — used only when src is absent.
+  String _resolveAudioUrl(Track track) {
+    final src = track.src.trim();
+    if (src.isNotEmpty) {
+      if (src.startsWith('http://') || src.startsWith('https://')) return src;
+      final base = AppConfig.webBaseUrl.replaceAll(RegExp(r'/$'), '');
+      return '$base/$src';
+    }
+    // Fallback to the stream endpoint
+    final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
+    return '$apiBase/tracks/${track.id}/stream';
   }
 
   Map<String, String> get _authHeaders => {
@@ -75,7 +82,7 @@ class PlayerService {
     for (final track in tracks) {
       await _playlist.add(
         AudioSource.uri(
-          Uri.parse(_streamUrl(track.id)),
+          Uri.parse(_resolveAudioUrl(track)),
           headers: _authHeaders,
         ),
       );
@@ -110,7 +117,7 @@ class PlayerService {
       await _playlist.clear();
       for (final track in shuffled) {
         await _playlist.add(
-          AudioSource.uri(Uri.parse(_streamUrl(track.id)), headers: _authHeaders),
+          AudioSource.uri(Uri.parse(_resolveAudioUrl(track)), headers: _authHeaders),
         );
       }
     } else {
@@ -118,7 +125,7 @@ class PlayerService {
       await _playlist.clear();
       for (final track in _tracksList) {
         await _playlist.add(
-          AudioSource.uri(Uri.parse(_streamUrl(track.id)), headers: _authHeaders),
+          AudioSource.uri(Uri.parse(_resolveAudioUrl(track)), headers: _authHeaders),
         );
       }
     }

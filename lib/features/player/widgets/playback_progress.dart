@@ -23,10 +23,16 @@ class PlaybackProgress extends ConsumerWidget {
         // Progress slider
         Slider(
           value: playerState.duration.inSeconds > 0
-              ? playerState.position.inSeconds.toDouble()
+              ? playerState.position.inSeconds
+                  .toDouble()
+                  .clamp(0, playerState.duration.inSeconds.toDouble())
               : 0,
-          max: playerState.duration.inSeconds.toDouble().clamp(0, double.infinity),
-          onChanged: null,
+          max: playerState.duration.inSeconds > 0
+              ? playerState.duration.inSeconds.toDouble()
+              : 1.0,
+          onChanged: playerState.duration.inSeconds > 0
+              ? (value) {} // enables interaction; seek committed in onChangeEnd
+              : null,
           onChangeEnd: (value) {
             ref.read(playerProvider.notifier).seek(
                   Duration(seconds: value.toInt()),

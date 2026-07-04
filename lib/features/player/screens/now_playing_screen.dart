@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/player_notifier.dart';
 import 'package:elsfm/data/models/player_state.dart' as player_state_model;
+import '../../library/providers/library_provider.dart';
+import '../../library/services/library_service.dart';
 import '../../lyrics/screens/lyrics_screen.dart';
 
 /// Now Playing screen — full-screen dark player matching elsfm.com mobile style
@@ -178,10 +180,42 @@ class NowPlayingScreen extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: Row(
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.favorite_border,
-                                  color: Colors.white70),
-                              onPressed: () {},
+                            Consumer(
+                              builder: (ctx, ref2, _) {
+                                final favMap =
+                                    ref2.watch(favoriteToggleProvider);
+                                final tid = currentTrack.id;
+                                final isFav = favMap[tid] ?? false;
+                                return IconButton(
+                                  icon: Icon(
+                                    isFav
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: isFav ? Colors.red : Colors.white70,
+                                  ),
+                                  onPressed: () async {
+                                    final svc =
+                                        ref2.read(libraryServiceProvider);
+                                    final ntf = ref2
+                                        .read(favoriteToggleProvider.notifier);
+                                    if (isFav) {
+                                      ntf.toggle(tid, false);
+                                      try {
+                                        await svc.removeFavorite(tid);
+                                      } catch (_) {
+                                        ntf.toggle(tid, true);
+                                      }
+                                    } else {
+                                      ntf.toggle(tid, true);
+                                      try {
+                                        await svc.addFavorite(tid);
+                                      } catch (_) {
+                                        ntf.toggle(tid, false);
+                                      }
+                                    }
+                                  },
+                                );
+                              },
                             ),
                             const Spacer(),
                             IconButton(
