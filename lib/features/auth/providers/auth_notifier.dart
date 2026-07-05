@@ -14,8 +14,11 @@ const _tokenKey = 'auth_token';
 const _cachedUserKey = 'cached_user';
 
 class AuthNotifier extends Notifier<AuthStateData> {
-  late final AuthService _authService;
-  late final FlutterSecureStorage _secureStorage;
+  // Not `late final` — Notifier.build() can run again on the same instance
+  // whenever a watched dependency (authServiceProvider / dioProvider) changes,
+  // and reassigning a `late final` field throws LateInitializationError.
+  late AuthService _authService;
+  late FlutterSecureStorage _secureStorage;
 
   @override
   AuthStateData build() {
