@@ -9,14 +9,10 @@ import 'package:elsfm/data/models/playlist.dart';
 import 'package:elsfm/features/player/providers/player_notifier.dart';
 import '../../player/widgets/track_context_menu.dart';
 
-/// Search results display widget
 class SearchResultsList extends ConsumerWidget {
   final SearchState state;
 
-  const SearchResultsList({
-    super.key,
-    required this.state,
-  });
+  const SearchResultsList({super.key, required this.state});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,6 +21,8 @@ class SearchResultsList extends ConsumerWidget {
       child: Column(
         children: [
           TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(text: 'Songs (${state.results?.songs.length ?? 0})'),
               Tab(text: 'Artists (${state.results?.artists.length ?? 0})'),
@@ -35,10 +33,10 @@ class SearchResultsList extends ConsumerWidget {
           Expanded(
             child: TabBarView(
               children: [
-                _buildSongsList(context, state.results?.songs ?? [], ref),
-                _buildArtistsList(context, state.results?.artists ?? []),
-                _buildAlbumsList(context, state.results?.albums ?? []),
-                _buildPlaylistsList(context, state.results?.playlists ?? []),
+                _SongsTab(songs: state.results?.songs ?? []),
+                _ArtistsTab(artists: state.results?.artists ?? []),
+                _AlbumsTab(albums: state.results?.albums ?? []),
+                _PlaylistsTab(playlists: state.results?.playlists ?? []),
               ],
             ),
           ),
@@ -46,113 +44,271 @@ class SearchResultsList extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildSongsList(BuildContext context, List<Track> songs, WidgetRef ref) {
+// ── Songs ─────────────────────────────────────────────────────────────────────
+
+class _SongsTab extends ConsumerWidget {
+  final List<Track> songs;
+
+  const _SongsTab({required this.songs});
+
+  @override
+  Widget build(BuildContext context, WidgetRef widgetRef) {
     if (songs.isEmpty) {
       return const Center(child: Text('No songs found'));
     }
-
     return ListView.builder(
       itemCount: songs.length,
       itemBuilder: (context, index) {
         final song = songs[index];
+        final img = song.image;
+        final imgUrl = (img != null && img.isNotEmpty)
+            ? (img.startsWith('http') ? img : img)
+            : null;
         return ListTile(
-          leading: _Thumbnail(url: song.image, size: 44, placeholder: Icons.music_note),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: imgUrl != null
+                ? Image.network(imgUrl,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _iconBox(Icons.music_note))
+                : _iconBox(Icons.music_note),
+          ),
           title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             song.artists.map((a) => a.name).join(', '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${song.duration.inMinutes}:${(song.duration.inSeconds % 60).toString().padLeft(2, '0')}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_vert, size: 20),
-                onPressed: () => showTrackContextSheet(context, song),
-              ),
-            ],
+          trailing: Text(
+            '${song.duration.inMinutes}:${(song.duration.inSeconds % 60).toString().padLeft(2, '0')}',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           onTap: () {
-            ref.read(playerProvider.notifier).playTrack(song);
+            widgetRef
+                .read(playerProvider.notifier)
+                .setQueue(songs, startIndex: index);
+            context.push('/now-playing');
           },
         );
       },
     );
   }
 
-  Widget _buildArtistsList(BuildContext context, List<Artist> artists) {
+  Widget _iconBox(IconData icon) => Container(
+        width: 44,
+        height: 44,
+        color: Colors.grey[300],
+        child: Icon(icon, color: Colors.grey[600]),
+      );
+}
+
+// ── Artists ───────────────────────────────────────────────────────────────────
+
+class _ArtistsTab extends StatelessWidget {
+  final List<Artist> artists;
+  const _ArtistsTab({required this.artists});
+
+  @override
+  Widget build(BuildContext context) {
     if (artists.isEmpty) {
       return const Center(child: Text('No artists found'));
     }
-
-    return ListView.builder(
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.82,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
       itemCount: artists.length,
       itemBuilder: (context, index) {
         final artist = artists[index];
-        return ListTile(
-          leading: _CircularThumbnail(url: artist.image, size: 44),
-          title: Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          onTap: () {
-            context.push('/artist/${artist.id}');
-          },
+        return GestureDetector(
+          onTap: () => context.push('/artist/${artist.id}'),
+          child: Column(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: artist.image != null && artist.image!.isNotEmpty
+                      ? Image.network(
+                          artist.image!,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _ArtistPlaceholder(name: artist.name),
+                        )
+                      : _ArtistPlaceholder(name: artist.name),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                artist.name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
         );
       },
     );
   }
+}
 
-  Widget _buildAlbumsList(BuildContext context, List<Album> albums) {
+// ── Albums ────────────────────────────────────────────────────────────────────
+
+class _AlbumsTab extends StatelessWidget {
+  final List<Album> albums;
+  const _AlbumsTab({required this.albums});
+
+  @override
+  Widget build(BuildContext context) {
     if (albums.isEmpty) {
       return const Center(child: Text('No albums found'));
     }
-
-    return ListView.builder(
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.82,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
       itemCount: albums.length,
       itemBuilder: (context, index) {
         final album = albums[index];
-        return ListTile(
-          leading: _Thumbnail(url: album.image, size: 44, placeholder: Icons.album),
-          title: Text(album.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: album.artists.isNotEmpty
-              ? Text(
+        return GestureDetector(
+          onTap: () => context.push('/album/${album.id}'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: album.image != null && album.image!.isNotEmpty
+                      ? Image.network(
+                          album.image!,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _AlbumPlaceholder(name: album.name),
+                        )
+                      : _AlbumPlaceholder(name: album.name),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                album.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              if (album.artists.isNotEmpty)
+                Text(
                   album.artists.map((a) => a.name).join(', '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          onTap: () {
-            context.push('/album/${album.id}');
-          },
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
+          ),
         );
       },
     );
   }
+}
 
-  Widget _buildPlaylistsList(BuildContext context, List<Playlist> playlists) {
+// ── Playlists ─────────────────────────────────────────────────────────────────
+
+class _PlaylistsTab extends StatelessWidget {
+  final List<Playlist> playlists;
+  const _PlaylistsTab({required this.playlists});
+
+  @override
+  Widget build(BuildContext context) {
     if (playlists.isEmpty) {
       return const Center(child: Text('No playlists found'));
     }
-
     return ListView.builder(
       itemCount: playlists.length,
       itemBuilder: (context, index) {
         final playlist = playlists[index];
+        final img = playlist.image;
         return ListTile(
-          leading: _Thumbnail(url: playlist.image, size: 44, placeholder: Icons.playlist_play),
-          title: Text(playlist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text('${playlist.views} views'),
-          onTap: () {
-            context.push('/playlist/${playlist.id}');
-          },
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: img != null && img.isNotEmpty
+                ? Image.network(
+                    img,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _iconBox(Icons.playlist_play),
+                  )
+                : _iconBox(Icons.playlist_play),
+          ),
+          title: Text(playlist.name,
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text('${playlist.views} plays'),
+          onTap: () => context.push('/playlist/${playlist.id}'),
         );
       },
+    );
+  }
+
+  Widget _iconBox(IconData icon) => Container(
+        width: 48,
+        height: 48,
+        color: Colors.grey[300],
+        child: Icon(icon, color: Colors.grey[600]),
+      );
+}
+
+// ── Placeholders ──────────────────────────────────────────────────────────────
+
+class _ArtistPlaceholder extends StatelessWidget {
+  final String name;
+  const _ArtistPlaceholder({required this.name});
+
+  Color get _color {
+    final hue = (name.codeUnits.fold(0, (a, b) => a + b) % 360).toDouble();
+    return HSLColor.fromAHSL(1.0, hue, 0.45, 0.3).toColor();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _color,
+      child:
+          const Center(child: Icon(Icons.person, size: 40, color: Colors.white54)),
+    );
+  }
+}
+
+class _AlbumPlaceholder extends StatelessWidget {
+  final String name;
+  const _AlbumPlaceholder({required this.name});
+
+  Color get _color {
+    final hue = (name.codeUnits.fold(0, (a, b) => a + b) % 360).toDouble();
+    return HSLColor.fromAHSL(1.0, hue, 0.4, 0.3).toColor();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _color,
+      child: const Center(
+          child: Icon(Icons.album, size: 40, color: Colors.white54)),
     );
   }
 }

@@ -9,13 +9,13 @@ class HomeData {
   final List<Playlist> featuredPlaylists;
   final List<Genre> genres;
   final List<Track> topTracks;
-  final List<Album> albums;
+  final List<Album> newReleases;
 
   const HomeData({
     required this.featuredPlaylists,
     required this.genres,
     required this.topTracks,
-    required this.albums,
+    required this.newReleases,
   });
 }
 
@@ -33,6 +33,6 @@ final homeDataProvider = FutureProvider<HomeData>((ref) async {
     featuredPlaylists: (results[0] as dynamic).data as List<Playlist>,
     genres: results[1] as List<Genre>,
     topTracks: (results[2] as dynamic).data as List<Track>,
-    albums: (results[3] as dynamic).data as List<Album>,
+    newReleases: (results[3] as dynamic).data as List<Album>,
   );
 });

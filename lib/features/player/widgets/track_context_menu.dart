@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../data/models/track.dart';
-import '../../../data/models/download.dart';
 import '../../../config/app_config.dart';
-import '../../downloads/providers/downloads_provider.dart';
 import '../../library/providers/library_provider.dart';
 import '../../player/providers/player_notifier.dart';
+import '../models/track_action.dart';
+import '../providers/track_actions_provider.dart';
 
 String _resolveImg(String? img) {
   if (img == null || img.isEmpty) return '';
@@ -25,59 +25,79 @@ void showTrackContextSheet(BuildContext context, Track track) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (_) => TrackContextSheet(track: track),
+    builder: (_) => TrackContextMenu(track: track),
   );
 }
 
-class TrackContextSheet extends ConsumerStatefulWidget {
+class TrackContextMenu extends ConsumerWidget {
   final Track track;
-  const TrackContextSheet({super.key, required this.track});
+  final VoidCallback? onShare;
+  final VoidCallback? onDownload;
+  final VoidCallback? onAddToPlaylist;
+  final VoidCallback? onAddToQueue;
+  final VoidCallback? onViewDetails;
+  final VoidCallback? onReportIssue;
+  final Offset? position;
+  final bool isLiked;
+  final VoidCallback? onLikeTap;
+
+  const TrackContextMenu({
+    super.key,
+    required this.track,
+    this.onShare,
+    this.onDownload,
+    this.onAddToPlaylist,
+    this.onAddToQueue,
+    this.onViewDetails,
+    this.onReportIssue,
+    this.position,
+    this.isLiked = false,
+    this.onLikeTap,
+  });
 
   @override
-  ConsumerState<TrackContextSheet> createState() => _TrackContextSheetState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actions = ref.watch(availableTrackActionsProvider);
+    final artistName = track.artists.isNotEmpty
+        ? track.artists.map((a) => a.name).join(', ')
+        : 'Unknown Artist';
 
-class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
-  bool _isLiked = false;
-  bool _likeLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final track = widget.track;
-    final imageUrl = _resolveImg(track.image);
-    final artistNames = track.artists.map((a) => a.name).join(', ');
-
-    return SafeArea(
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // drag handle
+          // Handle bar
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity( 0.4),
+              color: Colors.grey[400],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // header
+          // Track info header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _imgFallback(),
-                        )
-                      : _imgFallback(),
-                ),
+                if (track.image != null && track.image!.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(
+                      track.image!,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _artPlaceholder(),
+                    ),
+                  )
+                else
+                  _artPlaceholder(),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -85,24 +105,21 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
                     children: [
                       Text(
                         track.name,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 15),
                       ),
-                      if (artistNames.isNotEmpty)
-                        Text(
-                          artistNames,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity( 0.6),
-                          ),
-                        ),
+                      const SizedBox(height: 2),
+                      Text(
+                        artistName,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -110,204 +127,95 @@ class _TrackContextSheetState extends ConsumerState<TrackContextSheet> {
             ),
           ),
           const Divider(height: 1),
-          // actions
-          _item(Icons.queue_music, 'Add to queue', () {
-            ref.read(playerProvider.notifier).playTrack(track);
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Added to queue')),
-            );
-          }),
-          _item(Icons.playlist_add, 'Add to playlist', () {
-            Navigator.pop(context);
-            _showAddToPlaylistSheet(context, ref, track);
-          }),
-          _item(
-            _isLiked ? Icons.favorite : Icons.favorite_border,
-            _isLiked ? 'Remove from library' : 'Like',
-            _likeLoading ? null : () => _toggleLike(context),
+          // Like action
+          _MenuTile(
+            icon: isLiked ? Icons.favorite : Icons.favorite_border,
+            label: isLiked ? 'Unlike' : 'Like',
+            color: isLiked ? Colors.red : null,
+            onTap: () {
+              onLikeTap?.call();
+              Navigator.pop(context);
+            },
           ),
-          _item(Icons.download, 'Download', () => _downloadTrack(context)),
-          _item(Icons.share, 'Share', () {
-            Navigator.pop(context);
-            Share.share(
-              'https://www.elsfm.com/track/${track.id}',
-              subject: track.name,
-            );
-          }),
-          _item(Icons.link, 'Copy link', () {
-            Clipboard.setData(ClipboardData(
-                text: 'https://www.elsfm.com/track/${track.id}'));
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Link copied to clipboard')),
-            );
-          }),
-          if (track.artists.isNotEmpty)
-            _item(Icons.person, 'Go to artist', () {
-              Navigator.pop(context);
-              context.push('/artist/${track.artists.first.id}');
-            }),
-          if (track.album != null)
-            _item(Icons.album, 'Go to album', () {
-              Navigator.pop(context);
-              context.push('/album/${track.album!.id}');
-            }),
+          // Other actions
+          ...actions.map(
+            (action) => _MenuTile(
+              icon: _getIcon(action),
+              label: action.label,
+              onTap: () => _handleAction(context, action),
+            ),
+          ),
           const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  Widget _imgFallback() => Container(
+  Widget _artPlaceholder() => Container(
         width: 48,
         height: 48,
-        color: Colors.grey.withOpacity( 0.2),
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(4),
+        ),
         child: const Icon(Icons.music_note, color: Colors.grey),
       );
 
-  Widget _item(IconData icon, String label, VoidCallback? onTap) {
-    return ListTile(
-      leading: Icon(icon, size: 22),
-      title: Text(label),
-      onTap: onTap,
-      enabled: onTap != null,
-    );
-  }
-
-  String _resolveDownloadUrl(Track track) {
-    final src = track.src.trim();
-    if (src.isNotEmpty) {
-      if (src.startsWith('http://') || src.startsWith('https://')) return src;
-      final base = AppConfig.webBaseUrl.replaceAll(RegExp(r'/+$'), '');
-      return '$base/$src';
-    }
-    final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
-    return '$apiBase/tracks/${track.id}/stream';
-  }
-
-  Future<void> _downloadTrack(BuildContext ctx) async {
-    Navigator.pop(ctx);
-    try {
-      final svc = await ref.read(downloadServiceProvider.future);
-      final download = Download(
-        id: widget.track.id,
-        trackId: widget.track.id,
-        trackName: widget.track.name,
-        downloadUrl: _resolveDownloadUrl(widget.track),
-        createdAt: DateTime.now(),
-      );
-      await svc.enqueueDownload(download);
-      if (mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(content: Text('Downloading ${widget.track.name}…')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
-      }
+  Future<void> _handleAction(BuildContext context, TrackAction action) async {
+    Navigator.pop(context);
+    switch (action) {
+      case TrackAction.share:
+        onShare?.call();
+      case TrackAction.download:
+        onDownload?.call();
+      case TrackAction.addToPlaylist:
+        onAddToPlaylist?.call();
+      case TrackAction.addToQueue:
+        onAddToQueue?.call();
+      case TrackAction.viewDetails:
+        onViewDetails?.call();
+      case TrackAction.reportIssue:
+        onReportIssue?.call();
+      default:
+        break;
     }
   }
 
-  Future<void> _toggleLike(BuildContext ctx) async {
-    setState(() => _likeLoading = true);
-    try {
-      final repository =
-          await ref.read(libraryRepositoryProvider.future);
-      if (_isLiked) {
-        await repository.removeFavorite(widget.track.id);
-      } else {
-        await repository.addFavorite(widget.track.id);
-      }
-
-      setState(() => _isLiked = !_isLiked);
-      ref.invalidate(favoritesProvider);
-
-      if (mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-              content:
-                  Text(_isLiked ? 'Added to library' : 'Removed from library')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _likeLoading = false);
-    }
+  IconData _getIcon(TrackAction action) {
+    return switch (action) {
+      TrackAction.play => Icons.play_arrow,
+      TrackAction.addToPlaylist => Icons.playlist_add,
+      TrackAction.share => Icons.share,
+      TrackAction.download => Icons.download,
+      TrackAction.like => Icons.favorite,
+      TrackAction.unlike => Icons.favorite_border,
+      TrackAction.addToQueue => Icons.queue_music,
+      TrackAction.viewDetails => Icons.info_outline,
+      TrackAction.reportIssue => Icons.flag_outlined,
+    };
   }
 }
 
-void _showAddToPlaylistSheet(
-    BuildContext context, WidgetRef ref, Track track) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => _AddToPlaylistSheet(track: track),
-  );
-}
+class _MenuTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final VoidCallback onTap;
 
-class _AddToPlaylistSheet extends ConsumerWidget {
-  final Track track;
-  const _AddToPlaylistSheet({required this.track});
+  const _MenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity( 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              'Add to playlist',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline),
-            title: const Text('Create new playlist'),
-            onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Create playlist coming soon')),
-              );
-            },
-          ),
-          const Divider(height: 1),
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Text(
-              'Your playlists will appear here',
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, size: 22, color: color),
+      title: Text(label, style: TextStyle(color: color)),
+      onTap: onTap,
+      dense: true,
     );
   }
 }

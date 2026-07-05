@@ -1,14 +1,17 @@
+import 'dart:convert';
 import 'package:dio/dio.dart' show DioException, Dio, BaseOptions;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/providers/http_client_provider.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/models/user.dart';
 import '../models/auth_state.dart';
 import '../services/google_sign_in_service.dart';
 
 const _tokenKey = 'auth_token';
+const _cachedUserKey = 'cached_user';
 
 class AuthNotifier extends Notifier<AuthStateData> {
   late final AuthService _authService;
@@ -18,35 +21,69 @@ class AuthNotifier extends Notifier<AuthStateData> {
   AuthStateData build() {
     _authService = ref.watch(authServiceProvider);
     _secureStorage = ref.watch(secureStorageProvider);
+    // Kick off async init without blocking the synchronous build.
     Future.microtask(_initAuth);
     return AuthStateData.unauthenticated();
+  }
+
+  Future<void> _cacheUser(User user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cachedUserKey, jsonEncode(user.toJson()));
+    } catch (_) {}
+  }
+
+  Future<User?> _getCachedUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cachedUserKey);
+      if (raw == null) return null;
+      return User.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _clearCachedUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cachedUserKey);
+    } catch (_) {}
   }
 
   Future<void> _initAuth() async {
     state = state.copyWith(state: AuthState.authenticating);
 
-    // Try saved token (do not delete it on network errors).
     final savedToken = await _secureStorage.read(key: _tokenKey);
     if (savedToken != null) {
+      _authService.setToken(savedToken);
       try {
-        _authService.setToken(savedToken);
         final user = await _authService.getCurrentUser();
+        await _cacheUser(user);
         state = AuthStateData.authenticated(user);
         return;
       } on DioException catch (e) {
         // Only clear token on 401 Unauthorized — not on network errors.
         if (e.response?.statusCode == 401) {
           await _secureStorage.delete(key: _tokenKey);
+          await _clearCachedUser();
           _authService.clearToken();
         } else {
           if (kDebugMode) debugPrint('Network error during auth init: $e');
+          // Network error — restore from cache so the user stays logged in offline.
+          final cached = await _getCachedUser();
+          if (cached != null) {
+            state = AuthStateData.authenticated(cached);
+            return;
+          }
         }
-        state = AuthStateData.unauthenticated();
-        return;
       } catch (e) {
         if (kDebugMode) debugPrint('Auth init error: $e');
-        state = AuthStateData.unauthenticated();
-        return;
+        final cached = await _getCachedUser();
+        if (cached != null) {
+          state = AuthStateData.authenticated(cached);
+          return;
+        }
       }
     }
 
@@ -60,45 +97,122 @@ class AuthNotifier extends Notifier<AuthStateData> {
       if (result.token != null) {
         await _secureStorage.write(key: _tokenKey, value: result.token);
       }
+      await _cacheUser(result.user);
       state = AuthStateData.authenticated(result.user);
     } catch (e) {
       state = AuthStateData.error(e.toString());
     }
   }
 
-  Future<void> loginWithGoogle(BuildContext context) async {
+  /// Login with a token obtained from WebView-based social OAuth callback.
+  Future<void> loginWithSocialToken(String token) async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
+      _authService.setToken(token);
+      final user = await _authService.getCurrentUser();
+      await _secureStorage.write(key: _tokenKey, value: token);
+      await _cacheUser(user);
+      state = AuthStateData.authenticated(user);
+    } catch (e) {
+      _authService.clearToken();
+      state = AuthStateData.error('Social login failed: ${e.toString()}');
+    }
+  }
 
-      final googleService = GoogleSignInService();
-      final googleResult = await googleService.signInWithGoogle();
+  /// Sign in with the device's Google account (native account picker).
+  /// Returns false if native sign-in fails so the caller can fall back to WebView.
+  Future<bool> loginWithGoogle() async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final service = GoogleSignInService();
+      final googleResult = await service.signInWithGoogle();
 
-      if (googleResult.accessToken == null) {
-        throw Exception('Google sign-in failed: Missing access token');
-      }
-
-      final result = await _authService.loginWithGoogle(
-        googleResult.accessToken!,
+      final result = await _authService.loginWithGoogleToken(
+        accessToken: googleResult.accessToken,
+        idToken: googleResult.idToken,
       );
 
       if (result.token != null) {
         await _secureStorage.write(key: _tokenKey, value: result.token!);
       }
+      await _cacheUser(result.user);
+      state = AuthStateData.authenticated(result.user);
+      return true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Native Google Sign-In failed: $e');
+      state = AuthStateData.unauthenticated();
+      return false;
+    }
+  }
 
+  /// Called after WebView social OAuth when no token in URL — rely on session cookie.
+  Future<void> loginWithSession() async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final result = await _authService.loginWithSession();
+      if (result.token != null) {
+        await _secureStorage.write(key: _tokenKey, value: result.token!);
+        _authService.setToken(result.token!);
+      }
+      await _cacheUser(result.user);
       state = AuthStateData.authenticated(result.user);
     } catch (e) {
-      state = AuthStateData.error('Google sign-in failed: ${e.toString()}');
+      state = AuthStateData.error('Social login failed: ${e.toString()}');
     }
+  }
+
+  Future<void> register(
+    String name,
+    String email,
+    String password,
+    String passwordConfirmation,
+  ) async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final result = await _authService.register(
+          name, email, password, passwordConfirmation);
+      if (result.token != null) {
+        await _secureStorage.write(key: _tokenKey, value: result.token);
+      }
+      await _cacheUser(result.user);
+      state = AuthStateData.authenticated(result.user);
+    } catch (e) {
+      state = AuthStateData.error(e.toString());
+    }
+  }
+
+  Future<String> forgotPassword(String email) async {
+    return _authService.forgotPassword(email);
+  }
+
+  Future<void> updateProfile({String? name, String? email}) async {
+    final userId = state.user?.id;
+    if (userId == null) throw Exception('Not authenticated');
+    final user = await _authService.updateProfile(
+        userId: userId, name: name, email: email);
+    await _cacheUser(user);
+    state = AuthStateData.authenticated(user);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmation,
+  }) async {
+    await _authService.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmation: confirmation,
+    );
   }
 
   Future<void> logout() async {
     try {
       await _authService.logout();
-      await _secureStorage.delete(key: _tokenKey);
-      state = AuthStateData.unauthenticated();
-    } catch (e) {
-      state = AuthStateData.error(e.toString());
-    }
+    } catch (_) {}
+    await _secureStorage.delete(key: _tokenKey);
+    await _clearCachedUser();
+    state = AuthStateData.unauthenticated();
   }
 }
 

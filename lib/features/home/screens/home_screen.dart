@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../../data/models/track.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/album.dart';
+import '../../../data/models/genre.dart';
+import '../../../config/app_config.dart';
 import '../providers/home_provider.dart';
 import '../../player/providers/player_notifier.dart';
-import '../../player/widgets/track_context_menu.dart';
 
 String _fmtDuration(Duration d) {
   final m = d.inSeconds ~/ 60;
@@ -32,6 +33,11 @@ class HomeScreen extends ConsumerWidget {
         title: const Text('Nepali Christian Songs'),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () => context.go('/search'),
+            tooltip: 'Search',
+          ),
           IconButton(
             icon: const Icon(Icons.library_music_outlined),
             onPressed: () => context.go('/library'),
@@ -75,16 +81,17 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 _PlaylistRow(playlists: home.featuredPlaylists),
                 const SizedBox(height: 8),
-                _SectionHeader(
-                  title: 'Albums',
-                  onSeeAll: () {},
-                ),
-                _AlbumRow(albums: home.albums),
-                const SizedBox(height: 8),
-                _SectionHeader(
-                  title: 'Popular Songs',
-                  onSeeAll: null,
-                ),
+                if (home.genres.isNotEmpty) ...[
+                  _SectionHeader(title: 'Genres'),
+                  _GenreRow(genres: home.genres),
+                  const SizedBox(height: 16),
+                ],
+                if (home.newReleases.isNotEmpty) ...[
+                  _SectionHeader(title: 'New Releases'),
+                  _AlbumRow(albums: home.newReleases),
+                  const SizedBox(height: 8),
+                ],
+                _SectionHeader(title: 'Popular Songs'),
                 _TrackList(tracks: home.topTracks),
               ],
             ),
@@ -224,67 +231,70 @@ class _MediaCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          width: size,
-                          height: size,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _ColorBox(color: _fallbackColor, size: size),
-                        )
-                      : _ColorBox(color: _fallbackColor, size: size),
-                ),
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.play_arrow,
-                        color: Colors.white, size: 20),
-                  ),
-                ),
-              ],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: imageUrl.isNotEmpty
+                  ? Image.network(imageUrl, width: size, height: size, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _ColorBox(color: _fallbackColor, size: size))
+                  : _ColorBox(color: _fallbackColor, size: size),
             ),
             const SizedBox(height: 6),
             SizedBox(
               width: size,
-              child: Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            ),
-            SizedBox(
-              width: size,
-              child: Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withOpacity(0.5),
-                    ),
-              ),
+              child: Text(title,
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Genres ────────────────────────────────────────────────────────────────────
+
+class _GenreRow extends StatelessWidget {
+  final List<Genre> genres;
+  const _GenreRow({required this.genres});
+
+  @override
+  Widget build(BuildContext context) {
+    if (genres.isEmpty) {
+      return const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('No genres available.'));
+    }
+    return SizedBox(
+      height: 44,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: genres.length,
+        itemBuilder: (_, i) => _GenreChip(genre: genres[i]),
+      ),
+    );
+  }
+}
+
+class _GenreChip extends StatelessWidget {
+  final Genre genre;
+  const _GenreChip({required this.genre});
+
+  Color get _color {
+    final hue = (genre.name.codeUnits.fold(0, (a, b) => a + b) % 360).toDouble();
+    return HSLColor.fromAHSL(1.0, hue, 0.45, 0.38).toColor();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Chip(
+        label: Text(genre.label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        backgroundColor: _color,
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
       ),
     );
   }
@@ -307,7 +317,7 @@ class _TrackList extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: tracks.length,
-      itemBuilder: (_, i) => _TrackTile(track: tracks[i], index: i, allTracks: tracks),
+      itemBuilder: (_, i) => _TrackTile(track: tracks[i], index: i + 1, allTracks: tracks),
     );
   }
 }
@@ -316,8 +326,7 @@ class _TrackTile extends ConsumerWidget {
   final Track track;
   final int index;
   final List<Track> allTracks;
-  const _TrackTile(
-      {required this.track, required this.index, required this.allTracks});
+  const _TrackTile({required this.track, required this.index, required this.allTracks});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -342,24 +351,11 @@ class _TrackTile extends ConsumerWidget {
       subtitle: artists.isNotEmpty
           ? Text(artists, maxLines: 1, overflow: TextOverflow.ellipsis)
           : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(_fmtDuration(track.duration),
-              style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: Icon(Icons.more_vert,
-                size: 20,
-                color:
-                    Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-            onPressed: () => showTrackContextSheet(context, track),
-          ),
-        ],
-      ),
-      onTap: () => ref
-          .read(playerProvider.notifier)
-          .setQueue(allTracks, startIndex: index),
+      trailing: Text(_fmtDuration(track.duration), style: Theme.of(context).textTheme.bodySmall),
+      onTap: () {
+        ref.read(playerProvider.notifier).setQueue(allTracks, startIndex: index - 1);
+        context.push('/now-playing');
+      },
     );
   }
 }

@@ -31,9 +31,12 @@ class Track {
   factory Track.fromJson(Map<String, dynamic> json) {
     // BeMusic stores duration in milliseconds (e.g. 348000 = 5m48s).
     final durationMs = (json['duration'] as num?)?.toInt() ?? 0;
-    // `src` / `url` / `stream_url` is not returned by the API.
-    // It must be set later via the stream endpoint when playback is requested.
-    final src = json['src'] as String? ?? json['url'] as String? ?? '';
+    // BeMusic returns src as a relative path, e.g. "tracks/1.mp3".
+    // Resolve to a full storage URL so just_audio can load it directly.
+    final rawSrc = json['src'] as String? ?? json['url'] as String? ?? '';
+    final src = rawSrc.startsWith('http') ? rawSrc
+        : rawSrc.isNotEmpty ? 'https://www.elsfm.com/storage/$rawSrc'
+        : '';
     return Track(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',

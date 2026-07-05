@@ -198,6 +198,84 @@ class ApiClient {
     );
   }
 
+  // Like / unlike tracks
+  Future<void> likeTrack(int userId, int trackId) async {
+    await dio.post('/users/$userId/liked-tracks/attach', data: {'ids': [trackId]});
+  }
+
+  Future<void> unlikeTrack(int userId, int trackId) async {
+    await dio.post('/users/$userId/liked-tracks/detach', data: {'ids': [trackId]});
+  }
+
+  // Playlists — track management
+  Future<void> addTrackToPlaylist(int playlistId, int trackId) async {
+    await dio.post('/playlists/$playlistId/tracks', data: {'track_id': trackId});
+  }
+
+  Future<void> removeTrackFromPlaylist(int playlistId, int trackId) async {
+    await dio.delete('/playlists/$playlistId/tracks/$trackId');
+  }
+
+  // Followed artists
+  Future<PaginationResponse<Artist>> getFollowedArtists(
+    int userId, {
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+        '/users/$userId/followed-artists',
+        queryParameters: {'page': page, 'per_page': perPage});
+    return _parsePaginationResponse(
+      response.data!,
+      (e) => Artist.fromJson(e as Map<String, dynamic>),
+    );
+  }
+
+  // Play history
+  Future<PaginationResponse<Track>> getHistory(
+    int userId, {
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    final response = await dio.get<Map<String, dynamic>>(
+        '/users/$userId/history',
+        queryParameters: {'page': page, 'per_page': perPage});
+    final data = response.data!;
+    final inner = data.containsKey('pagination')
+        ? data['pagination'] as Map<String, dynamic>
+        : data;
+    return _parsePaginationResponse(
+      inner,
+      (e) => Track.fromJson(e as Map<String, dynamic>),
+    );
+  }
+
+  // Create playlist
+  Future<Playlist> createPlaylist({
+    required String name,
+    bool public = false,
+  }) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      '/playlists',
+      data: {'name': name, 'public': public},
+    );
+    final data = response.data!;
+    final playlistJson =
+        (data['playlist'] ?? data['data'] ?? data) as Map<String, dynamic>;
+    return Playlist.fromJson(playlistJson);
+  }
+
+  // Follow / unfollow artist
+  Future<void> followArtist(int userId, int artistId) async {
+    await dio.post('/users/$userId/followed-artists/attach',
+        data: {'ids': [artistId]});
+  }
+
+  Future<void> unfollowArtist(int userId, int artistId) async {
+    await dio.post('/users/$userId/followed-artists/detach',
+        data: {'ids': [artistId]});
+  }
+
   // Genres
   Future<List<Genre>> getGenres({int perPage = 20}) async {
     final response = await dio.get<Map<String, dynamic>>(
@@ -285,7 +363,7 @@ class ApiClient {
   // Log a play after track starts
   Future<void> logTrackPlay(int trackId) async {
     try {
-      await dio.post<void>('/tracks/plays/$trackId/log');
+      await dio.post<void>('/tracks/$trackId/plays');
     } catch (_) {}
   }
 

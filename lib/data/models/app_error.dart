@@ -112,6 +112,8 @@ AppError mapToAppError(Object error) {
         return const UnknownError(message: 'SSL certificate error.');
       case DioExceptionType.unknown:
         return NetworkError(cause: error);
+      default:
+        return UnknownError(cause: error, message: error.toString());
     }
   }
 

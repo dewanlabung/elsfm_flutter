@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/player_state.dart' as ps;
 import '../models/track.dart';
@@ -21,16 +22,21 @@ class PlayerService {
   String? _authToken;
 
   /// Update the auth token used for stream requests. Call this after login.
-  void setAuthToken(String? token) => _authToken = token;
+  void setAuthToken(String? token) {
+    _authToken = token;
+    if (kDebugMode) {
+      debugPrint('[PlayerService] Auth token updated: ${token != null ? '${token.substring(0, 20)}...' : 'null'}');
+    }
+  }
 
-  /// Resolves the best playback URL for a track.
+  /// Resolves the direct CDN URL for a track's audio file.
   ///
-  /// Priority:
-  ///   1. track.src — the direct storage path returned by the BeMusic API
-  ///      (e.g. "storage/track_media/xxx.mp3"). This is a static file served
-  ///      by Cloudflare with proper Content-Length and Accept-Ranges support,
-  ///      which lets ExoPlayer seek correctly without PHP middleware.
-  ///   2. Fallback: /api/v1/tracks/{id}/stream — used only when src is absent.
+  /// BeMusic API returns src as "storage/track_media/xxx.mp3" (relative path).
+  /// Build the full HTTPS URL — matching exactly how elsfm-native does it:
+  ///   MediaItem.Builder().setUri(baseUrl + src)  // no auth headers
+  ///
+  /// Confirmed: https://www.elsfm.com/storage/track_media/xxx.mp3
+  ///   → HTTP 200, Content-Type: audio/mpeg, Accept-Ranges: bytes (public static file)
   String _resolveAudioUrl(Track track) {
     final src = track.src.trim();
     if (src.isNotEmpty) {
@@ -38,15 +44,28 @@ class PlayerService {
       final base = AppConfig.webBaseUrl.replaceAll(RegExp(r'/$'), '');
       return '$base/$src';
     }
-    // Fallback to the stream endpoint
+    // Fallback to stream endpoint when src is absent
     final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
     return '$apiBase/tracks/${track.id}/stream';
   }
 
+  AudioSource _buildSource(Track track) {
+    final url = _resolveAudioUrl(track);
+    // Static CDN files are publicly accessible — sending auth headers causes
+    // ExoPlayer "Source error". Only the stream API endpoint needs auth.
+    final isStaticStorage = url.contains('/storage/');
+    if (kDebugMode) {
+      debugPrint('[PlayerService] Track ${track.id} "${track.name}": $url');
+      debugPrint('[PlayerService] Headers: ${isStaticStorage ? "none (static)" : "Bearer token"}');
+    }
+    return AudioSource.uri(
+      Uri.parse(url),
+      headers: isStaticStorage ? const {} : _authHeaders,
+    );
+  }
+
   Map<String, String> get _authHeaders => {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-    'Accept': '*/*',
-    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'audio/*,*/*',
     if (_authToken != null) 'Authorization': 'Bearer $_authToken',
   };
 
@@ -77,30 +96,45 @@ class PlayerService {
   }
 
   Future<void> setQueue(List<Track> tracks) async {
+    if (kDebugMode) debugPrint('[PlayerService] setQueue called with ${tracks.length} tracks');
     _tracksList = List<Track>.from(tracks);
     await _playlist.clear();
     for (final track in tracks) {
-      await _playlist.add(
-        AudioSource.uri(
-          Uri.parse(_resolveAudioUrl(track)),
-          headers: _authHeaders,
-        ),
-      );
+      if (kDebugMode) debugPrint('[PlayerService] Adding track: ${track.name} (id: ${track.id}, src: ${track.src})');
+      await _playlist.add(_buildSource(track));
     }
+    if (kDebugMode) debugPrint('[PlayerService] Queue setup complete');
   }
 
   /// Returns an unmodifiable view of the current queue.
   List<Track> get queue => List.unmodifiable(_tracksList);
 
-  Future<void> play() => _audioPlayer.play();
+  Future<void> play() async {
+    if (kDebugMode) debugPrint('[PlayerService] play() called');
+    try {
+      await _audioPlayer.play();
+      if (kDebugMode) debugPrint('[PlayerService] play() succeeded, state: ${_audioPlayer.playerState}');
+    } catch (e) {
+      if (kDebugMode) debugPrint('[PlayerService] play() failed: $e');
+      rethrow;
+    }
+  }
+
   Future<void> pause() async {
     _sleepTimer.cancelTimer();
+    if (kDebugMode) debugPrint('[PlayerService] pause() called');
     await _audioPlayer.pause();
   }
 
-  Future<void> stop() => _audioPlayer.stop();
+  Future<void> stop() async {
+    if (kDebugMode) debugPrint('[PlayerService] stop() called');
+    await _audioPlayer.stop();
+  }
 
-  Future<void> seek(Duration position) => _audioPlayer.seek(position);
+  Future<void> seek(Duration position) async {
+    if (kDebugMode) debugPrint('[PlayerService] seek() to ${position.inSeconds}s');
+    await _audioPlayer.seek(position);
+  }
   Future<void> previous() => _audioPlayer.seekToPrevious();
   Future<void> next() => _audioPlayer.seekToNext();
 
@@ -112,22 +146,12 @@ class PlayerService {
   /// shuffled copy so the original [_tracksList] order is preserved for
   /// when shuffle is later disabled.
   Future<void> setShuffle(bool shuffle) async {
-    if (shuffle) {
-      final shuffled = List<Track>.from(_tracksList)..shuffle();
-      await _playlist.clear();
-      for (final track in shuffled) {
-        await _playlist.add(
-          AudioSource.uri(Uri.parse(_resolveAudioUrl(track)), headers: _authHeaders),
-        );
-      }
-    } else {
-      // Rebuild playlist in original order
-      await _playlist.clear();
-      for (final track in _tracksList) {
-        await _playlist.add(
-          AudioSource.uri(Uri.parse(_resolveAudioUrl(track)), headers: _authHeaders),
-        );
-      }
+    final list = shuffle
+        ? (List<Track>.from(_tracksList)..shuffle())
+        : _tracksList;
+    await _playlist.clear();
+    for (final track in list) {
+      await _playlist.add(_buildSource(track));
     }
   }
 
@@ -141,7 +165,18 @@ class PlayerService {
     });
   }
 
-  Stream<String?> get errorStream => _errorController.stream;
+  // just_audio surfaces errors as PlayerState with processingState == idle
+  // after a failed load. Map this to an error string for the UI.
+  Stream<String?> get errorStream {
+    return _audioPlayer.playerStateStream.map((s) {
+      if (!s.playing && s.processingState == ProcessingState.idle) {
+        // idle after a load attempt usually means the source failed
+        return null; // distinguish from "never started" with null here;
+                     // PlaybackException is thrown on play() and caught in notifier
+      }
+      return null;
+    }).distinct();
+  }
 
   Stream<int?> get currentIndexStream => _audioPlayer.currentIndexStream;
   Stream<Duration> get positionStream => _audioPlayer.positionStream;

@@ -4,6 +4,7 @@ import 'data/services/hive_service.dart';
 import 'features/auth/models/auth_state.dart';
 import 'features/auth/providers/auth_notifier.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/settings/providers/theme_provider.dart';
 import 'main/app_router.dart';
 
 void main() async {
@@ -35,12 +36,15 @@ class ElsfmApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     // Show loading spinner while restoring session
     if (authState.state == AuthState.authenticating) {
       return MaterialApp(
         title: 'ELSFM',
-        theme: _buildTheme(Brightness.dark),
+        theme: _buildTheme(Brightness.light),
+        darkTheme: _buildTheme(Brightness.dark),
+        themeMode: themeMode,
         home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
@@ -51,7 +55,9 @@ class ElsfmApp extends ConsumerWidget {
     if (authState.state != AuthState.authenticated) {
       return MaterialApp(
         title: 'ELSFM',
-        theme: _buildTheme(Brightness.dark),
+        theme: _buildTheme(Brightness.light),
+        darkTheme: _buildTheme(Brightness.dark),
+        themeMode: themeMode,
         home: const LoginScreen(),
       );
     }
@@ -59,7 +65,9 @@ class ElsfmApp extends ConsumerWidget {
     // Authenticated: use Phase 3 router with ShellRoute, bottom nav, mini-player
     return MaterialApp.router(
       title: 'ELSFM',
-      theme: _buildTheme(Brightness.dark),
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
+      themeMode: themeMode,
       routerConfig: appRouter,
     );
   }

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/player/widgets/mini_player.dart';
 import '../features/auth/providers/auth_notifier.dart';
+import '../features/auth/models/auth_state.dart';
+import '../features/settings/providers/theme_provider.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -177,13 +179,8 @@ class _AppDrawer extends ConsumerWidget {
                 _DrawerItem(
                   icon: Icons.download_outlined,
                   label: 'Downloads',
-                  selected: false,
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Downloads coming soon')),
-                    );
-                  },
+                  selected: selectedRoute.startsWith('/downloads'),
+                  onTap: () => onNavigate('/downloads'),
                 ),
                 const Divider(),
                 _DrawerItem(
@@ -204,6 +201,19 @@ class _AppDrawer extends ConsumerWidget {
 
           // ── Footer ───────────────────────────────────────────────────────
           const Divider(height: 1),
+          Consumer(
+            builder: (context, ref, _) {
+              final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+              return SwitchListTile(
+                secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode, size: 20),
+                title: Text(isDark ? 'Dark Mode' : 'Light Mode',
+                    style: const TextStyle(fontSize: 13)),
+                value: isDark,
+                dense: true,
+                onChanged: (_) => ref.read(themeModeProvider.notifier).toggle(),
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.info_outline, size: 20),
             title: const Text('ELSFM v1.0.0', style: TextStyle(fontSize: 13)),

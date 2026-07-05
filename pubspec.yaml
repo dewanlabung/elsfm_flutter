@@ -48,7 +48,7 @@ dependencies:
   # Logging
   logger: ^2.0.0
 
-  # Google Sign-In (no Firebase — uses OAuth access token sent to BeMusic backend)
+  # Google Sign-In (native device account picker)
   google_sign_in: ^6.2.0
 
   # Share & Downloads

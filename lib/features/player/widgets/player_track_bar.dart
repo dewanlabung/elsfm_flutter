@@ -21,8 +21,6 @@ class PlayerTrackBar extends ConsumerWidget {
     }
 
     final track = currentTrack!;
-    final artistNames = track.artists.map((a) => a.name).join(', ');
-    final imageUrl = track.image;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -35,16 +33,20 @@ class PlayerTrackBar extends ConsumerWidget {
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
-              color: Colors.grey[300],
-              image: imageUrl != null
+              image: currentTrack!.image != null
                   ? DecorationImage(
-                      image: NetworkImage(imageUrl),
+                      image: NetworkImage(currentTrack!.image!),
                       fit: BoxFit.cover,
                     )
                   : null,
+              color: currentTrack!.image == null ? Colors.grey[300] : null,
             ),
-            child: imageUrl == null
-                ? Icon(Icons.music_note, size: 24, color: Colors.grey[600])
+            child: currentTrack!.image == null
+                ? Icon(
+                    Icons.music_note,
+                    size: 24,
+                    color: Colors.grey[600],
+                  )
                 : null,
           ),
           // Track info
@@ -55,7 +57,7 @@ class PlayerTrackBar extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    track.name,
+                    currentTrack!.name,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -64,7 +66,7 @@ class PlayerTrackBar extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    artistNames.isNotEmpty ? artistNames : 'Unknown Artist',
+                    currentTrack!.artists.isNotEmpty ? currentTrack!.artists[0].name : 'Unknown Artist',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.grey,
                         ),

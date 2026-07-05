@@ -7,159 +7,230 @@ class AuthService {
 
   AuthService(this.dio);
 
+  String? _extractToken(Map<String, dynamic> data) =>
+      (data['accessToken'] ?? data['access_token'] ?? data['plain_text_token'] ?? data['token'])
+          as String?;
+
   Future<({User user, String? token})> loginWithEmail(
     String email,
     String password,
   ) async {
     try {
-      final loginData = {
-        'email': email,
-        'password': password,
-        'token_name': 'ELSFM Flutter App',
-      };
-
-      if (kDebugMode) {
-        debugPrint('🔐 Login attempt: POST ${dio.options.baseUrl}/auth/login');
-      }
-
       final response = await dio.post(
         '/auth/login',
-        data: loginData,
-        options: Options(
-          contentType: 'application/json',
-        ),
+        data: {'email': email, 'password': password, 'token_name': 'ELSFM Flutter App'},
+        options: Options(contentType: 'application/json'),
       );
 
-      if (kDebugMode) {
-        debugPrint('✓ Login response: ${response.statusCode}');
-      }
+      if (kDebugMode) debugPrint('Login response: ${response.statusCode}');
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
+        final token = _extractToken(data);
+        if (token != null) dio.options.headers['Authorization'] = 'Bearer $token';
 
-        // Try to extract token from response (some endpoints return it)
-        final token = (data['accessToken'] ??
-                      data['access_token'] ??
-                      data['plain_text_token'] ??
-                      data['token']) as String?;
-
-        if (token != null) {
-          dio.options.headers['Authorization'] = 'Bearer $token';
-          if (kDebugMode) debugPrint('✓ Token set: Bearer ${token.substring(0, 10)}...');
-        }
-
-        // Extract user from the bootstrap response
-        // The login endpoint returns user data in the response
         final userJson = data['user'] as Map<String, dynamic>?;
-        if (userJson == null) {
-          throw Exception('Login failed: No user data in response');
-        }
-
-        final user = User.fromJson(userJson);
-        if (kDebugMode) {
-          debugPrint('✓ Login successful: user=${user.email}');
-        }
-
-        return (user: user, token: token);
+        if (userJson == null) throw Exception('Login failed: No user data in response');
+        return (user: User.fromJson(userJson), token: token);
       }
 
       final message = (response.data as Map<String, dynamic>?)?['message']
-          ?? 'Unknown error (status: ${response.statusCode})';
-      throw Exception('Login failed: $message');
+          ?? 'Login failed (status: ${response.statusCode})';
+      throw Exception(message);
     } on DioException catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Login error: ${e.type}');
-        debugPrint('   Status: ${e.response?.statusCode}');
-        debugPrint('   Response: ${e.response?.data}');
-      }
       final message = (e.response?.data as Map<String, dynamic>?)?['message']
           ?? e.message ?? 'Network error';
-      throw Exception('Login failed: $message');
+      throw Exception(message);
     }
   }
 
-  Future<User> getCurrentUser() async {
+  Future<({User user, String? token})> register(
+    String name,
+    String email,
+    String password,
+    String passwordConfirmation,
+  ) async {
     try {
+      final response = await dio.post(
+        '/auth/register',
+        data: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+          'token_name': 'ELSFM Flutter App',
+        },
+        options: Options(contentType: 'application/json'),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data as Map<String, dynamic>;
+        final token = _extractToken(data);
+        if (token != null) dio.options.headers['Authorization'] = 'Bearer $token';
+
+        final userJson = data['user'] as Map<String, dynamic>?;
+        if (userJson == null) throw Exception('Registration failed: No user data');
+        return (user: User.fromJson(userJson), token: token);
+      }
+
+      final message = (response.data as Map<String, dynamic>?)?['message']
+          ?? 'Registration failed (status: ${response.statusCode})';
+      throw Exception(message);
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String message = e.message ?? 'Network error';
+      if (data is Map) {
+        // Laravel validation errors come as {errors: {field: [msg]}}
+        final errors = data['errors'] as Map?;
+        if (errors != null) {
+          message = errors.values
+              .expand((v) => v is List ? v : [v])
+              .join('\n');
+        } else {
+          message = data['message'] as String? ?? message;
+        }
+      }
+      throw Exception(message);
+    }
+  }
+
+  Future<String> forgotPassword(String email) async {
+    try {
+      final response = await dio.post(
+        '/auth/password/email',
+        data: {'email': email},
+        options: Options(contentType: 'application/json'),
+      );
+      final data = response.data as Map<String, dynamic>?;
+      return data?['message'] as String? ?? 'Password reset email sent.';
+    } on DioException catch (e) {
+      final message = (e.response?.data as Map<String, dynamic>?)?['message']
+          ?? 'Failed to send reset email';
+      throw Exception(message);
+    }
+  }
+
+  /// Exchange a Google OAuth token for a BeMusic auth token.
+  /// BeMusic's Socialite backend verifies the token and returns a user + API token.
+  Future<({User user, String? token})> loginWithGoogleToken({
+    String? accessToken,
+    String? idToken,
+  }) async {
+    if (accessToken == null && idToken == null) {
+      throw Exception('No Google token provided');
+    }
+    try {
+      final response = await dio.post(
+        '/auth/social/google',
+        data: <String, dynamic>{
+          if (accessToken != null) 'access_token': accessToken,
+          if (idToken != null) 'id_token': idToken,
+          'provider': 'google',
+        },
+        options: Options(contentType: 'application/json'),
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final token = _extractToken(data);
+        if (token != null) dio.options.headers['Authorization'] = 'Bearer $token';
+        final userJson = data['user'] as Map<String, dynamic>?;
+        if (userJson != null) return (user: User.fromJson(userJson), token: token);
+      }
+      throw Exception('Unexpected response from social login');
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['message'] as String? ??
+          e.message ??
+          'Google login failed';
+      throw Exception(msg);
+    }
+  }
+
+  /// Get current user using existing session/cookie (after WebView social OAuth).
+  Future<({User user, String? token})> loginWithSession() async {
+    try {
+      // BeMusic may return a csrf-token endpoint or we just try /user
       final response = await dio.get('/user');
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
         final userJson = (data['user'] ?? data) as Map<String, dynamic>;
-        return User.fromJson(userJson);
+        return (user: User.fromJson(userJson), token: null);
       }
-      throw Exception('Failed to get user');
+      throw Exception('Session login failed');
     } on DioException catch (e) {
-      throw Exception('Get user error: ${e.message}');
+      throw Exception('Session login failed: ${e.message}');
     }
   }
 
-  /// BeMusic social auth: pass the Google access token to the callback endpoint.
-  /// SocialAuthController::loginCallback() calls
-  ///   Socialite::driver('google')->userFromToken($tokenFromApi)
-  /// and returns MobileBootstrapData (same shape as email login response).
-  Future<({User user, String? token})> loginWithGoogle(
-    String accessToken,
-  ) async {
+  Future<User> getCurrentUser() async {
+    final response = await dio.get('/user');
+    if (response.statusCode == 200 && response.data != null) {
+      final data = response.data as Map<String, dynamic>;
+      final userJson = (data['user'] ?? data) as Map<String, dynamic>;
+      return User.fromJson(userJson);
+    }
+    throw Exception('Failed to get user (status: ${response.statusCode})');
+  }
+
+  Future<User> updateProfile({
+    required int userId,
+    String? name,
+    String? email,
+  }) async {
     try {
-      if (kDebugMode) {
-        debugPrint('🔐 Google login: GET /auth/social/google/callback');
-      }
-
-      final response = await dio.get(
-        '/auth/social/google/callback',
-        queryParameters: {
-          'tokenFromApi': accessToken,
-          'token_name': 'ELSFM Flutter App',
+      final response = await dio.put(
+        '/users/$userId',
+        data: {
+          if (name != null) 'name': name,
+          if (email != null) 'email': email,
         },
+        options: Options(contentType: 'application/json'),
       );
-
-      if (kDebugMode) {
-        debugPrint('✓ Google social callback: ${response.statusCode}');
-      }
-
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-
-        // MobileBootstrapData shape — token may be in user or top-level
-        final userBlock = data['user'] as Map<String, dynamic>?;
-        final token = (userBlock?['access_token'] ??
-                      userBlock?['plain_text_token'] ??
-                      data['access_token'] ??
-                      data['plain_text_token'] ??
-                      data['token']) as String?;
-
-        final userJson = (data['user'] ?? data) as Map<String, dynamic>?;
-        if (userJson == null) {
-          throw Exception('Google login failed: No user data in response');
-        }
-
-        if (token != null) {
-          dio.options.headers['Authorization'] = 'Bearer $token';
-        }
-
-        final user = User.fromJson(userJson);
-        if (kDebugMode) debugPrint('✓ Google login OK: ${user.email}');
-        return (user: user, token: token);
-      }
-
-      throw Exception('Google login failed: status ${response.statusCode}');
+      final data = response.data as Map<String, dynamic>;
+      final userJson = (data['user'] ?? data) as Map<String, dynamic>;
+      return User.fromJson(userJson);
     } on DioException catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Google login error: ${e.response?.statusCode}');
-        debugPrint('   Body: ${e.response?.data}');
+      final msg = (e.response?.data as Map?)?['message'] as String?
+          ?? e.message
+          ?? 'Failed to update profile';
+      throw Exception(msg);
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmation,
+  }) async {
+    try {
+      await dio.post(
+        '/auth/change-password',
+        data: {
+          'current_password': currentPassword,
+          'password': newPassword,
+          'password_confirmation': confirmation,
+        },
+        options: Options(contentType: 'application/json'),
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String msg = e.message ?? 'Failed to change password';
+      if (data is Map) {
+        final errors = data['errors'] as Map?;
+        if (errors != null) {
+          msg = errors.values.expand((v) => v is List ? v : [v]).join('\n');
+        } else {
+          msg = data['message'] as String? ?? msg;
+        }
       }
-      final msg = (e.response?.data as Map?)?['message'] ?? e.message ?? 'Network error';
-      throw Exception('Google login failed: $msg');
+      throw Exception(msg);
     }
   }
 
   Future<void> logout() async {
     try {
       await dio.post('/auth/logout');
-    } catch (_) {
-      // Ignore errors on logout
-    } finally {
-      dio.options.headers.remove('Authorization');
-    }
+    } catch (_) {}
+    dio.options.headers.remove('Authorization');
   }
 
   void setToken(String token) {

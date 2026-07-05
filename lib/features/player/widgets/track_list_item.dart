@@ -23,9 +23,6 @@ class TrackListItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final artistNames = track.artists.map((a) => a.name).join(', ');
-    final imageUrl = track.image;
-
     return Material(
       child: InkWell(
         onTap: onTap,
@@ -52,25 +49,35 @@ class TrackListItem extends ConsumerWidget {
                 )
               else
                 const SizedBox(width: 8),
-              // Track artwork
-              Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: Colors.grey[300],
-                  image: imageUrl != null
-                      ? DecorationImage(
-                          image: NetworkImage(imageUrl),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
+              // Track artwork (if available)
+              if (track.image != null)
+                Container(
+                  width: 40,
+                  height: 40,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    image: DecorationImage(
+                      image: NetworkImage(track.image!),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: 40,
+                  height: 40,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: Colors.grey[300],
+                  ),
+                  child: Icon(
+                    Icons.music_note,
+                    size: 20,
+                    color: Colors.grey[600],
+                  ),
                 ),
-                child: imageUrl == null
-                    ? Icon(Icons.music_note, size: 20, color: Colors.grey[600])
-                    : null,
-              ),
               // Track info
               Expanded(
                 child: Column(
@@ -87,7 +94,7 @@ class TrackListItem extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      artistNames.isNotEmpty ? artistNames : 'Unknown Artist',
+                      track.artists.isNotEmpty ? track.artists[0].name : 'Unknown Artist',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey,
                           ),
@@ -102,10 +109,9 @@ class TrackListItem extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   _formatDuration(track.duration),
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: Colors.grey),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey,
+                      ),
                 ),
               ),
               // Like button

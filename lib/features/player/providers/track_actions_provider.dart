@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/track.dart';
+import '../../../data/providers/http_client_provider.dart';
 import '../models/track_action.dart';
 import '../services/track_actions_service.dart';
 
 final trackActionsServiceProvider = Provider((ref) {
-  return TrackActionsService();
+  final dio = ref.watch(dioProvider).valueOrNull;
+  return TrackActionsService(dio: dio);
 });
 
 /// Provider to handle share action

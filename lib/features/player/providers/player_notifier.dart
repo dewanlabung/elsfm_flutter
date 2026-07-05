@@ -1,13 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
 import '../../../data/models/track.dart';
-import '../../../data/services/player_service.dart';
-import '../../../data/providers/http_client_provider.dart';
 import '../../../data/providers/api_client_provider.dart';
-import '../../auth/providers/auth_notifier.dart';
+import '../../../data/providers/http_client_provider.dart';
+import '../../../data/services/player_service.dart';
 import '../../auth/models/auth_state.dart';
+import '../../auth/providers/auth_notifier.dart';
 
 class PlayerNotifier extends Notifier<player_models.PlayerState> {
   late PlayerService _playerService;
@@ -15,6 +16,20 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
   @override
   player_models.PlayerState build() {
     final playerServiceAsync = ref.watch(playerServiceProvider);
+
+    // Keep auth token in sync with auth state so streams work after login,
+    // without requiring the player service to be rebuilt.
+    ref.listen<AuthStateData>(authNotifierProvider, (previous, next) {
+      playerServiceAsync.whenData((service) async {
+        if (next.state == AuthState.authenticated) {
+          const storage = FlutterSecureStorage();
+          final token = await storage.read(key: 'auth_token');
+          service.setAuthToken(token);
+        } else if (next.state == AuthState.unauthenticated) {
+          service.setAuthToken(null);
+        }
+      });
+    });
 
     return playerServiceAsync.when(
       data: (service) {
@@ -71,21 +86,22 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
+    if (kDebugMode) debugPrint('[PlayerNotifier] setQueue: ${tracks.length} tracks, startIndex: $startIndex');
     final queueIds = tracks.map((t) => t.id).toList();
-    state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex);
-    await _playerService.setQueue(tracks);
-    await _playerService.seek(Duration.zero);
-    if (startIndex > 0) {
-      await _playerService.audioPlayer.seek(Duration.zero, index: startIndex);
-    }
-    await _playerService.play();
-
-    final trackId = tracks.isNotEmpty ? tracks[startIndex].id : null;
-    if (trackId != null) {
-      // Fire-and-forget: log the play using the async dioProvider.
-      ref.read(dioProvider.future).then((dio) {
-        apiClientFromDio(dio).logTrackPlay(trackId);
-      }).catchError((_) {});
+    state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex, error: null);
+    try {
+      await _playerService.setQueue(tracks);
+      if (startIndex > 0) {
+        await _playerService.audioPlayer.seek(Duration.zero, index: startIndex);
+      } else {
+        await _playerService.seek(Duration.zero);
+      }
+      if (kDebugMode) debugPrint('[PlayerNotifier] About to call playerService.play()');
+      await _playerService.play();
+      if (kDebugMode) debugPrint('[PlayerNotifier] playerService.play() succeeded');
+    } catch (e) {
+      if (kDebugMode) debugPrint('[PlayerNotifier] setQueue error: $e');
+      state = state.copyWith(error: 'Cannot play track: $e');
     }
   }
 
@@ -190,5 +206,4 @@ final _stubService = PlayerService();
 
 final playerProvider =
     NotifierProvider<PlayerNotifier, player_models.PlayerState>(
-  PlayerNotifier.new,
-);
+        PlayerNotifier.new);

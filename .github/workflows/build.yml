@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - claude/flutter-playback-navigation-1fva8r
   pull_request:
     branches:
       - main
@@ -91,4 +92,49 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  create-dev-release:
+    runs-on: ubuntu-latest
+    needs: [build-android]
+    if: github.ref == 'refs/heads/claude/flutter-playback-navigation-1fva8r' && github.event_name == 'push'
+    name: Create Dev Pre-Release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: elsfm-release-apk
+
+      - name: Delete existing dev-latest tag/release
+        run: |
+          gh release delete dev-latest --yes || true
+          git push origin :refs/tags/dev-latest || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Dev Pre-Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: app-release.apk
+          tag_name: dev-latest
+          name: "Dev Build (Latest)"
+          body: |
+            🚧 **Development build** — auto-generated from branch `claude/flutter-playback-navigation-1fva8r`
+
+            **What's new:**
+            - Albums open with real cover art and track list
+            - Tracks play when tapped (queues full album/playlist)
+            - Artists open with photo, tabs for tracks & albums
+            - Play All + Shuffle buttons work
+            - Now Playing shows real album art
+            - Search results navigate to artist/album/playlist pages
+
+            **Install:** Download `app-release.apk` below, open it on your Android phone.
+            > You may need to enable *Install unknown apps* in Android settings.
+          draft: false
+          prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}

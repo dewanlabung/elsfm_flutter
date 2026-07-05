@@ -3,24 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/app_config.dart';
 import '../../../data/models/track.dart';
-import '../providers/album_provider.dart';
+import '../providers/playlist_provider.dart';
 import '../../player/providers/player_notifier.dart';
 
-class AlbumScreen extends ConsumerStatefulWidget {
-  final int albumId;
+class PlaylistScreen extends ConsumerStatefulWidget {
+  final int playlistId;
 
-  const AlbumScreen({super.key, required this.albumId});
+  const PlaylistScreen({super.key, required this.playlistId});
 
   @override
-  ConsumerState<AlbumScreen> createState() => _AlbumScreenState();
+  ConsumerState<PlaylistScreen> createState() => _PlaylistScreenState();
 }
 
-class _AlbumScreenState extends ConsumerState<AlbumScreen> {
+class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(selectedAlbumIdProvider.notifier).state = widget.albumId;
+      ref.read(selectedPlaylistIdProvider.notifier).state = widget.playlistId;
     });
   }
 
@@ -38,36 +38,29 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final albumAsync = ref.watch(albumProvider);
-    final tracksAsync = ref.watch(albumTracksProvider);
-    final colorScheme = Theme.of(context).colorScheme;
+    final playlistAsync = ref.watch(playlistProvider);
+    final tracksAsync = ref.watch(playlistTracksProvider);
 
     return Scaffold(
-      body: albumAsync.when(
+      body: playlistAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
-        data: (album) {
-          final imageUrl = _resolveImage(album['image'] as String?);
-          final albumName = (album['name'] as String?) ?? 'Album';
-          final artistName =
-              (album['artists'] as List?)?.isNotEmpty == true
-                  ? ((album['artists'] as List)[0]['name'] as String?) ?? ''
-                  : '';
-          final artistId =
-              (album['artists'] as List?)?.isNotEmpty == true
-                  ? (album['artists'] as List)[0]['id'] as int?
-                  : null;
-          final releaseYear = album['release_year'];
+        data: (playlist) {
+          final imageUrl = _resolveImage(playlist['image'] as String?);
+          final name = (playlist['name'] as String?) ?? 'Playlist';
+          final description = (playlist['description'] as String?) ?? '';
+          final ownerName =
+              (playlist['owner'] as Map?)?['name'] as String? ?? '';
 
           return CustomScrollView(
             slivers: [
               // ── Hero header ──────────────────────────────────────────────
               SliverAppBar(
-                expandedHeight: 300,
+                expandedHeight: 280,
                 pinned: true,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    albumName,
+                    name,
                     style: const TextStyle(
                       shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
                     ),
@@ -77,52 +70,36 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
                           imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) =>
-                              _AlbumPlaceholder(name: albumName),
+                              _PlaylistPlaceholder(name: name),
                         )
-                      : _AlbumPlaceholder(name: albumName),
+                      : _PlaylistPlaceholder(name: name),
                 ),
               ),
 
-              // ── Artist + year ─────────────────────────────────────────────
+              // ── Meta info ─────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (artistName.isNotEmpty)
-                              GestureDetector(
-                                onTap: artistId != null
-                                    ? () => context.push('/artist/$artistId')
-                                    : null,
-                                child: Text(
-                                  artistName,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: artistId != null
-                                        ? colorScheme.primary
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                            if (releaseYear != null)
-                              Text(
-                                '$releaseYear • Album',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                          ],
+                      if (description.isNotEmpty)
+                        Text(description,
+                            style: Theme.of(context).textTheme.bodyMedium),
+                      if (ownerName.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'by $ownerName',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
               ),
 
-              // ── Play All button ───────────────────────────────────────────
+              // ── Action buttons ────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -185,13 +162,13 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
                       return const SizedBox(height: 100);
                     }
                     final track = tracks[index];
-                    final trackImageUrl = _resolveImage(track.image);
+                    final trackImgUrl = _resolveImage(track.image);
                     return ListTile(
-                      leading: trackImageUrl != null
+                      leading: trackImgUrl != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: Image.network(
-                                trackImageUrl,
+                                trackImgUrl,
                                 width: 44,
                                 height: 44,
                                 fit: BoxFit.cover,
@@ -232,9 +209,9 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
   }
 }
 
-class _AlbumPlaceholder extends StatelessWidget {
+class _PlaylistPlaceholder extends StatelessWidget {
   final String name;
-  const _AlbumPlaceholder({required this.name});
+  const _PlaylistPlaceholder({required this.name});
 
   Color get _color {
     final hue = (name.codeUnits.fold(0, (a, b) => a + b) % 360).toDouble();
@@ -246,7 +223,7 @@ class _AlbumPlaceholder extends StatelessWidget {
     return Container(
       color: _color,
       child: const Center(
-        child: Icon(Icons.album, size: 80, color: Colors.white54),
+        child: Icon(Icons.playlist_play, size: 80, color: Colors.white54),
       ),
     );
   }
@@ -262,10 +239,7 @@ class _TrackNumBox extends StatelessWidget {
       width: 44,
       height: 44,
       child: Center(
-        child: Text(
-          '$num',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+        child: Text('$num', style: Theme.of(context).textTheme.bodyMedium),
       ),
     );
   }
