@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_notifier.dart';
+import '../../settings/providers/theme_provider.dart';
+import '../../analytics/providers/analytics_notifier.dart';
 
 class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
@@ -160,6 +162,15 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             const Divider(),
             const SizedBox(height: 16),
 
+            // ── Theme Settings ─────────────────────────────────────────────
+            Text('Appearance',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            _ThemeToggle(),
+            const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 16),
+
             // ── Change password ────────────────────────────────────────────
             Text('Change Password',
                 style: Theme.of(context).textTheme.titleMedium),
@@ -213,6 +224,35 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ThemeToggle extends ConsumerWidget {
+  const _ThemeToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(isDark ? 'Dark Mode' : 'Light Mode'),
+      trailing: IconButton(
+        icon: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
+        onPressed: () {
+          final newTheme = isDark ? 'light' : 'dark';
+          ref.read(themeModeProvider.notifier).toggle();
+          // Track theme toggle event
+          ref.read(analyticsProvider.notifier).trackThemeToggleEvent(
+            theme: newTheme,
+          );
+        },
+      ),
+      subtitle: Text(isDark
+          ? 'Tap to switch to light mode'
+          : 'Tap to switch to dark mode'),
     );
   }
 }

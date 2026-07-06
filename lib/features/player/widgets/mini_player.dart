@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/app_config.dart';
 import '../providers/player_notifier.dart';
+import '../../analytics/providers/analytics_notifier.dart';
 
 class MiniPlayer extends ConsumerWidget {
   final VoidCallback? onExpanded;
@@ -88,7 +89,7 @@ class MiniPlayer extends ConsumerWidget {
                               .bodySmall
                               ?.copyWith(
                                   color: colorScheme.onSurface
-                                      .withOpacity(0.6)),
+                                      .withValues(alpha: 0.6)),
                         ),
                       ],
                     ),
@@ -99,16 +100,40 @@ class MiniPlayer extends ConsumerWidget {
                       playerState.isPlaying ? Icons.pause : Icons.play_arrow,
                     ),
                     onPressed: playerReady
-                        ? () => ref
-                            .read(playerProvider.notifier)
-                            .togglePlayPause()
+                        ? () {
+                            ref
+                                .read(playerProvider.notifier)
+                                .togglePlayPause();
+                            // Track play/pause event
+                            ref.read(analyticsProvider.notifier).trackPlayerEvent(
+                              action: playerState.isPlaying
+                                  ? 'pause'
+                                  : 'play',
+                              trackId: currentTrack.id.toString(),
+                              trackName: currentTrack.name,
+                              artistName: currentTrack.artists
+                                  .map((a) => a.name)
+                                  .join(', '),
+                            );
+                          }
                         : null,
                   ),
                   // Next
                   IconButton(
                     icon: const Icon(Icons.skip_next),
                     onPressed: playerReady
-                        ? () => ref.read(playerProvider.notifier).next()
+                        ? () {
+                            ref.read(playerProvider.notifier).next();
+                            // Track skip event
+                            ref.read(analyticsProvider.notifier).trackPlayerEvent(
+                              action: 'skip',
+                              trackId: currentTrack.id.toString(),
+                              trackName: currentTrack.name,
+                              artistName: currentTrack.artists
+                                  .map((a) => a.name)
+                                  .join(', '),
+                            );
+                          }
                         : null,
                   ),
                 ],
