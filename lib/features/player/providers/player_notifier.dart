@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:just_audio/just_audio.dart';
 import '../../../data/models/player_state.dart' as player_models;
 import '../../../data/models/track.dart';
 import '../../../data/providers/api_client_provider.dart';
@@ -10,6 +9,11 @@ import '../../../data/services/player_service.dart';
 import '../../auth/models/auth_state.dart';
 import '../../auth/providers/auth_notifier.dart';
 
+// ExoPlayer repeat-mode constants (mirrors Player.REPEAT_MODE_* from Media3).
+const int _repeatModeOff = 0;
+const int _repeatModeOne = 1;
+const int _repeatModeAll = 2;
+
 class PlayerNotifier extends Notifier<player_models.PlayerState> {
   late PlayerService _playerService;
 
@@ -17,8 +21,7 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
   player_models.PlayerState build() {
     final playerServiceAsync = ref.watch(playerServiceProvider);
 
-    // Keep auth token in sync with auth state so streams work after login,
-    // without requiring the player service to be rebuilt.
+    // Keep auth token in sync with auth state so API calls work after login.
     ref.listen<AuthStateData>(authNotifierProvider, (previous, next) {
       playerServiceAsync.whenData((service) async {
         if (next.state == AuthState.authenticated) {
@@ -52,7 +55,7 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
     service.currentIndexStream.listen((index) {
       final prevIndex = state.currentIndex;
       state = state.copyWith(currentIndex: index);
-      // Log play when track actually changes (not on first load — setQueue logs that)
+      // Log play when track actually changes
       if (index != null &&
           prevIndex != null &&
           index != prevIndex &&
@@ -86,19 +89,17 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
-    if (kDebugMode) debugPrint('[PlayerNotifier] setQueue: ${tracks.length} tracks, startIndex: $startIndex');
+    if (kDebugMode) {
+      debugPrint('[PlayerNotifier] setQueue: ${tracks.length} tracks, startIndex: $startIndex');
+    }
     final queueIds = tracks.map((t) => t.id).toList();
-    state = state.copyWith(queue: queueIds, tracks: tracks, currentIndex: startIndex, error: null);
+    state = state.copyWith(
+        queue: queueIds, tracks: tracks, currentIndex: startIndex, error: null);
     try {
       await _playerService.setQueue(tracks);
-      if (startIndex > 0) {
-        await _playerService.audioPlayer.seek(Duration.zero, index: startIndex);
-      } else {
-        await _playerService.seek(Duration.zero);
-      }
-      if (kDebugMode) debugPrint('[PlayerNotifier] About to call playerService.play()');
-      await _playerService.play();
-      if (kDebugMode) debugPrint('[PlayerNotifier] playerService.play() succeeded');
+      // playAtIndex starts playback at the correct position in the queue.
+      await _playerService.playAtIndex(startIndex);
+      if (kDebugMode) debugPrint('[PlayerNotifier] setQueue+play succeeded');
     } catch (e) {
       if (kDebugMode) debugPrint('[PlayerNotifier] setQueue error: $e');
       state = state.copyWith(error: 'Cannot play track: $e');
@@ -141,8 +142,7 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
     if (state.hasNext) {
       await _playerService.next();
     } else if (state.repeatMode == player_models.RepeatMode.all) {
-      await _playerService.audioPlayer.seek(Duration.zero, index: 0);
-      await play();
+      await _playerService.playAtIndex(0);
     }
   }
 
@@ -155,17 +155,17 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
   Future<void> toggleRepeat() async {
     final nextMode = switch (state.repeatMode) {
       player_models.RepeatMode.none => player_models.RepeatMode.one,
-      player_models.RepeatMode.one => player_models.RepeatMode.all,
-      player_models.RepeatMode.all => player_models.RepeatMode.none,
+      player_models.RepeatMode.one  => player_models.RepeatMode.all,
+      player_models.RepeatMode.all  => player_models.RepeatMode.none,
     };
     state = state.copyWith(repeatMode: nextMode);
 
-    final loopMode = switch (nextMode) {
-      player_models.RepeatMode.none => LoopMode.off,
-      player_models.RepeatMode.one => LoopMode.one,
-      player_models.RepeatMode.all => LoopMode.all,
+    final loopModeInt = switch (nextMode) {
+      player_models.RepeatMode.none => _repeatModeOff,
+      player_models.RepeatMode.one  => _repeatModeOne,
+      player_models.RepeatMode.all  => _repeatModeAll,
     };
-    await _playerService.setLoopMode(loopMode);
+    await _playerService.setLoopMode(loopModeInt);
   }
 
   void toggleShuffle() {
@@ -181,7 +181,6 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
 }
 
 final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
-  // Watch auth notifier state to trigger re-initialization on login/logout.
   final authState = ref.watch(authNotifierProvider);
   final playerService = PlayerService();
 
@@ -200,8 +199,7 @@ final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
   return playerService;
 });
 
-// Single shared stub used for loading/error states — never plays audio,
-// never leaks unauthenticated requests.
+// Single shared stub used for loading/error states — never plays audio.
 final _stubService = PlayerService();
 
 final playerProvider =

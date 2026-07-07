@@ -31,11 +31,13 @@ class Track {
   factory Track.fromJson(Map<String, dynamic> json) {
     // BeMusic stores duration in milliseconds (e.g. 348000 = 5m48s).
     final durationMs = (json['duration'] as num?)?.toInt() ?? 0;
-    // BeMusic returns src as a relative path, e.g. "tracks/1.mp3".
-    // Resolve to a full storage URL so just_audio can load it directly.
+    // BeMusic returns src as a relative path, e.g. "storage/track_media/xxx.mp3".
+    // Matches elsfm-native: MediaItem.Builder().setUri(baseUrl + src)
+    //   where baseUrl = "https://www.elsfm.com/" (trailing slash included).
+    // Do NOT add "/storage/" prefix — the API path already starts with "storage/".
     final rawSrc = json['src'] as String? ?? json['url'] as String? ?? '';
     final src = rawSrc.startsWith('http') ? rawSrc
-        : rawSrc.isNotEmpty ? 'https://www.elsfm.com/storage/$rawSrc'
+        : rawSrc.isNotEmpty ? 'https://www.elsfm.com/$rawSrc'
         : '';
     return Track(
       id: json['id'] as int,

@@ -1,220 +1,119 @@
 import 'dart:async';
-import 'package:audio_service/audio_service.dart';
-import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
 import '../models/player_state.dart' as ps;
 import '../models/track.dart';
-import 'audio_service_handler.dart';
+import 'native_player_service.dart';
 import 'sleep_timer_service.dart';
-import '../../config/app_config.dart';
 
+/// High-level player service backed by the native Android ExoPlayer (Media3).
+///
+/// Replaces the previous just_audio implementation that failed with
+/// "Source error" when ExoPlayer received auth headers for static CDN files.
+///
+/// The native layer receives pre-built full HTTPS URLs from [Track.src]:
+///   https://www.elsfm.com/storage/track_media/xxx.mp3   (no auth headers)
+///
+/// All public-facing stream types are identical to the old just_audio
+/// implementation so that Riverpod providers and UI widgets are unchanged.
 class PlayerService {
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  late ConcatenatingAudioSource _playlist;
-  AudioHandler? _audioHandler;
-  final SleepTimerService _sleepTimer = SleepTimerService();
+  final _native      = NativePlayerService();
+  final _sleepTimer  = SleepTimerService();
   List<Track> _tracksList = [];
-  late final StreamController<String?> _errorController =
-      StreamController<String?>.broadcast();
 
-  /// Optional Bearer token forwarded to just_audio for authenticated streaming.
+  // ── Auth token (kept for API calls, not used for audio streaming) ─────────
   String? _authToken;
-
-  /// Update the auth token used for stream requests. Call this after login.
   void setAuthToken(String? token) {
     _authToken = token;
-    if (kDebugMode) {
-      debugPrint('[PlayerService] Auth token updated: ${token != null ? '${token.substring(0, 20)}...' : 'null'}');
-    }
   }
 
-  /// Resolves the direct CDN URL for a track's audio file.
-  ///
-  /// BeMusic API returns src as "storage/track_media/xxx.mp3" (relative path).
-  /// Build the full HTTPS URL — matching exactly how elsfm-native does it:
-  ///   MediaItem.Builder().setUri(baseUrl + src)  // no auth headers
-  ///
-  /// Confirmed: https://www.elsfm.com/storage/track_media/xxx.mp3
-  ///   → HTTP 200, Content-Type: audio/mpeg, Accept-Ranges: bytes (public static file)
-  String _resolveAudioUrl(Track track) {
-    final src = track.src.trim();
-    if (src.isNotEmpty) {
-      if (src.startsWith('http://') || src.startsWith('https://')) return src;
-      final base = AppConfig.webBaseUrl.replaceAll(RegExp(r'/$'), '');
-      return '$base/$src';
-    }
-    // Fallback to stream endpoint when src is absent
-    final apiBase = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
-    return '$apiBase/tracks/${track.id}/stream';
-  }
-
-  AudioSource _buildSource(Track track) {
-    final url = _resolveAudioUrl(track);
-    // Static CDN files are publicly accessible — sending auth headers causes
-    // ExoPlayer "Source error". Only the stream API endpoint needs auth.
-    final isStaticStorage = url.contains('/storage/');
-    if (kDebugMode) {
-      debugPrint('[PlayerService] Track ${track.id} "${track.name}": $url');
-      debugPrint('[PlayerService] Headers: ${isStaticStorage ? "none (static)" : "Bearer token"}');
-    }
-    return AudioSource.uri(
-      Uri.parse(url),
-      headers: isStaticStorage ? const {} : _authHeaders,
-    );
-  }
-
-  Map<String, String> get _authHeaders => {
-    'Accept': 'audio/*,*/*',
-    if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-  };
-
+  // ── Initialise ────────────────────────────────────────────────────────────
   Future<void> init({List<Track>? tracks}) async {
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
-
-    _playlist = ConcatenatingAudioSource(children: []);
-    await _audioPlayer.setAudioSource(_playlist);
-
-    _audioPlayer.playbackEventStream.listen(
-      (_) {},
-      onError: (Object e, StackTrace st) {
-        _errorController.add(e.toString());
-      },
-    );
-
-    // Initialize audio service for lock screen controls
+    _native.init();
     if (tracks != null) {
       _tracksList = List<Track>.from(tracks);
+      await _native.setQueue(_tracksList);
     }
-    try {
-      _audioHandler = await initAudioService(_audioPlayer, tracks: _tracksList);
-    } catch (e) {
-      // Audio service initialization failure is non-fatal
-      // The app continues to work without lock screen controls
-    }
+    if (kDebugMode) debugPrint('[PlayerService] native Media3 player initialised');
   }
 
+  // ── Queue management ──────────────────────────────────────────────────────
   Future<void> setQueue(List<Track> tracks) async {
-    if (kDebugMode) debugPrint('[PlayerService] setQueue called with ${tracks.length} tracks');
-    _tracksList = List<Track>.from(tracks);
-    await _playlist.clear();
-    for (final track in tracks) {
-      if (kDebugMode) debugPrint('[PlayerService] Adding track: ${track.name} (id: ${track.id}, src: ${track.src})');
-      await _playlist.add(_buildSource(track));
+    if (kDebugMode) {
+      debugPrint('[PlayerService] setQueue: ${tracks.length} tracks');
+      for (final t in tracks) {
+        debugPrint('  track ${t.id} "${t.name}" → ${t.src}');
+      }
     }
-    if (kDebugMode) debugPrint('[PlayerService] Queue setup complete');
+    _tracksList = List<Track>.from(tracks);
+    await _native.setQueue(tracks);
   }
 
-  /// Returns an unmodifiable view of the current queue.
   List<Track> get queue => List.unmodifiable(_tracksList);
 
+  // ── Play / pause / stop ───────────────────────────────────────────────────
   Future<void> play() async {
-    if (kDebugMode) debugPrint('[PlayerService] play() called');
-    try {
-      await _audioPlayer.play();
-      if (kDebugMode) debugPrint('[PlayerService] play() succeeded, state: ${_audioPlayer.playerState}');
-    } catch (e) {
-      if (kDebugMode) debugPrint('[PlayerService] play() failed: $e');
-      rethrow;
-    }
+    if (kDebugMode) debugPrint('[PlayerService] play()');
+    await _native.play();
   }
 
   Future<void> pause() async {
     _sleepTimer.cancelTimer();
-    if (kDebugMode) debugPrint('[PlayerService] pause() called');
-    await _audioPlayer.pause();
+    await _native.pause();
   }
 
   Future<void> stop() async {
-    if (kDebugMode) debugPrint('[PlayerService] stop() called');
-    await _audioPlayer.stop();
+    await _native.stop();
   }
 
-  Future<void> seek(Duration position) async {
-    if (kDebugMode) debugPrint('[PlayerService] seek() to ${position.inSeconds}s');
-    await _audioPlayer.seek(position);
-  }
-  Future<void> previous() => _audioPlayer.seekToPrevious();
-  Future<void> next() => _audioPlayer.seekToNext();
-
-  Future<void> setPlaybackRate(double rate) => _audioPlayer.setSpeed(rate);
-
-  Future<void> setLoopMode(LoopMode mode) => _audioPlayer.setLoopMode(mode);
-
-  /// Enables or disables shuffle. When enabling, rebuilds the playlist from a
-  /// shuffled copy so the original [_tracksList] order is preserved for
-  /// when shuffle is later disabled.
-  Future<void> setShuffle(bool shuffle) async {
-    final list = shuffle
-        ? (List<Track>.from(_tracksList)..shuffle())
-        : _tracksList;
-    await _playlist.clear();
-    for (final track in list) {
-      await _playlist.add(_buildSource(track));
-    }
+  /// Start playback at a specific index in the current queue.
+  Future<void> playAtIndex(int index) async {
+    if (kDebugMode) debugPrint('[PlayerService] playAtIndex($index)');
+    await _native.playAtIndex(index);
   }
 
+  // ── Seek / navigation ─────────────────────────────────────────────────────
+  Future<void> seek(Duration position) => _native.seekTo(position);
+  Future<void> previous()              => _native.skipPrevious();
+  Future<void> next()                  => _native.skipNext();
+
+  // ── Playback options ──────────────────────────────────────────────────────
+  Future<void> setPlaybackRate(double rate) => _native.setPlaybackSpeed(rate);
+
+  /// Repeat mode: 0 = off, 1 = one, 2 = all  (matches ExoPlayer constants)
+  Future<void> setLoopMode(int mode) => _native.setRepeatMode(mode);
+
+  Future<void> setShuffle(bool shuffle) => _native.setShuffleEnabled(shuffle);
+
+  // ── Streams ───────────────────────────────────────────────────────────────
+
+  /// Combined playing + loading state.
   Stream<ps.PlayerState> get playerStateStream {
-    return _audioPlayer.playerStateStream.map((state) {
+    return _native.playerStateStream.map((stateStr) {
       return ps.PlayerState(
-        queue: [],
-        isPlaying: state.playing,
-        isLoading: state.processingState == ProcessingState.loading,
+        queue:     [],
+        isPlaying: _native.isPlaying,
+        isLoading: stateStr == 'loading',
       );
     });
   }
 
-  // just_audio surfaces errors as PlayerState with processingState == idle
-  // after a failed load. Map this to an error string for the UI.
-  Stream<String?> get errorStream {
-    return _audioPlayer.playerStateStream.map((s) {
-      if (!s.playing && s.processingState == ProcessingState.idle) {
-        // idle after a load attempt usually means the source failed
-        return null; // distinguish from "never started" with null here;
-                     // PlaybackException is thrown on play() and caught in notifier
-      }
-      return null;
-    }).distinct();
-  }
+  Stream<int?>     get currentIndexStream => _native.currentIndexStream;
+  Stream<Duration> get positionStream     => _native.positionStream;
+  Stream<Duration?> get durationStream   => _native.durationStream;
+  Stream<String?>  get errorStream        => _native.errorStream;
 
-  Stream<int?> get currentIndexStream => _audioPlayer.currentIndexStream;
-  Stream<Duration> get positionStream => _audioPlayer.positionStream;
-  Stream<Duration?> get durationStream => _audioPlayer.durationStream;
-
-  AudioPlayer get audioPlayer => _audioPlayer;
-  AudioHandler? get audioHandler => _audioHandler;
-  SleepTimerService get sleepTimer => _sleepTimer;
-
-  /// Start a sleep timer that will auto-pause after [duration].
-  ///
-  /// [duration] - How long until playback pauses (e.g., Duration(minutes: 5))
+  // ── Sleep timer ───────────────────────────────────────────────────────────
   void startSleepTimer(Duration duration) {
-    _sleepTimer.startTimer(
-      duration: duration,
-      onComplete: () {
-        pause();
-      },
-    );
+    _sleepTimer.startTimer(duration: duration, onComplete: pause);
   }
 
-  /// Cancel the active sleep timer.
-  void cancelSleepTimer() {
-    _sleepTimer.cancelTimer();
-  }
-
-  /// Get remaining time on the sleep timer, or null if not running.
+  void cancelSleepTimer()           => _sleepTimer.cancelTimer();
   Duration? get sleepTimerRemaining => _sleepTimer.remainingTime;
+  bool get isSleepTimerRunning      => _sleepTimer.isRunning;
 
-  /// Check if sleep timer is running.
-  bool get isSleepTimerRunning => _sleepTimer.isRunning;
-
+  // ── Dispose ───────────────────────────────────────────────────────────────
   Future<void> dispose() async {
     _sleepTimer.cancelTimer();
-    if (_audioHandler != null) {
-      await _audioHandler!.stop();
-    }
-    await _audioPlayer.dispose();
-    await _errorController.close();
+    await _native.dispose();
   }
 }
