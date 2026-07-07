@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -39,9 +38,14 @@ flutter {
 }
 
 dependencies {
-    // Media3 / ExoPlayer — native audio playback (replaces just_audio's ExoPlayer)
-    implementation("androidx.media3:media3-exoplayer:1.3.1")
-    implementation("androidx.media3:media3-common:1.3.1")
-    implementation("androidx.media3:media3-session:1.3.1")
-    implementation("androidx.media3:media3-ui:1.3.1")
+    // Media3 — native audio playback + MediaSession (background audio, lock screen)
+    // Versions must match to avoid runtime conflicts.
+    val media3Version = "1.3.1"
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-session:$media3Version")
+    implementation("androidx.media3:media3-common:$media3Version")
+    implementation("androidx.media3:media3-ui:$media3Version")
+
+    // AndroidX Core — ContextCompat.getMainExecutor() used in ElsfmPlayerPlugin
+    implementation("androidx.core:core-ktx:1.13.1")
 }

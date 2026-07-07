@@ -9,7 +9,7 @@ import '../../../data/services/player_service.dart';
 import '../../auth/models/auth_state.dart';
 import '../../auth/providers/auth_notifier.dart';
 
-// ExoPlayer repeat-mode constants (mirrors Player.REPEAT_MODE_* from Media3).
+// ExoPlayer repeat-mode constants (Player.REPEAT_MODE_* from Media3).
 const int _repeatModeOff = 0;
 const int _repeatModeOne = 1;
 const int _repeatModeAll = 2;
@@ -21,7 +21,7 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
   player_models.PlayerState build() {
     final playerServiceAsync = ref.watch(playerServiceProvider);
 
-    // Keep auth token in sync with auth state so API calls work after login.
+    // Keep auth token in sync so API calls work after login.
     ref.listen<AuthStateData>(authNotifierProvider, (previous, next) {
       playerServiceAsync.whenData((service) async {
         if (next.state == AuthState.authenticated) {
@@ -55,7 +55,7 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
     service.currentIndexStream.listen((index) {
       final prevIndex = state.currentIndex;
       state = state.copyWith(currentIndex: index);
-      // Log play when track actually changes
+      // Log play when the track actually changes
       if (index != null &&
           prevIndex != null &&
           index != prevIndex &&
@@ -88,6 +88,8 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
     });
   }
 
+  // ── Queue management ────────────────────────────────────────────────────────
+
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
     if (kDebugMode) {
       debugPrint('[PlayerNotifier] setQueue: ${tracks.length} tracks, startIndex: $startIndex');
@@ -97,7 +99,6 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
         queue: queueIds, tracks: tracks, currentIndex: startIndex, error: null);
     try {
       await _playerService.setQueue(tracks);
-      // playAtIndex starts playback at the correct position in the queue.
       await _playerService.playAtIndex(startIndex);
       if (kDebugMode) debugPrint('[PlayerNotifier] setQueue+play succeeded');
     } catch (e) {
@@ -106,8 +107,68 @@ class PlayerNotifier extends Notifier<player_models.PlayerState> {
     }
   }
 
-  /// Convenience method to play a single track immediately.
+  /// Convenience: play a single track immediately (replaces queue).
   Future<void> playTrack(Track track) => setQueue([track]);
+
+  /// Append a track to the end of the current queue.
+  /// If queue is empty, starts playback immediately.
+  Future<void> addToQueue(Track track) async {
+    final currentTracks = List<Track>.from(state.tracks ?? []);
+    if (currentTracks.isEmpty) {
+      await setQueue([track]);
+      return;
+    }
+    // Track already in queue — no-op
+    if (currentTracks.any((t) => t.id == track.id)) return;
+
+    currentTracks.add(track);
+    final currentIndex = state.currentIndex ?? 0;
+    final queueIds = currentTracks.map((t) => t.id).toList();
+    state = state.copyWith(queue: queueIds, tracks: currentTracks);
+    // Re-send full queue to native; resume from same index
+    try {
+      await _playerService.setQueue(currentTracks);
+      await _playerService.playAtIndex(currentIndex);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[PlayerNotifier] addToQueue error: $e');
+    }
+  }
+
+  /// Remove a track at [index] from the current queue.
+  /// If removing the currently playing track, plays the next one.
+  Future<void> removeFromQueue(int index) async {
+    final currentTracks = List<Track>.from(state.tracks ?? []);
+    if (index < 0 || index >= currentTracks.length) return;
+
+    final currentIndex = state.currentIndex ?? 0;
+    currentTracks.removeAt(index);
+
+    if (currentTracks.isEmpty) {
+      state = state.copyWith(queue: [], tracks: []);
+      await _playerService.stop();
+      return;
+    }
+
+    // Recalculate playing index
+    int newIndex = currentIndex;
+    if (index < currentIndex) {
+      newIndex = currentIndex - 1;
+    } else if (index == currentIndex) {
+      newIndex = currentIndex.clamp(0, currentTracks.length - 1);
+    }
+
+    final queueIds = currentTracks.map((t) => t.id).toList();
+    state = state.copyWith(queue: queueIds, tracks: currentTracks, currentIndex: newIndex);
+
+    try {
+      await _playerService.setQueue(currentTracks);
+      await _playerService.playAtIndex(newIndex);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[PlayerNotifier] removeFromQueue error: $e');
+    }
+  }
+
+  // ── Playback control ────────────────────────────────────────────────────────
 
   Future<void> play() async {
     state = state.copyWith(isLoading: true);
@@ -199,7 +260,7 @@ final playerServiceProvider = FutureProvider<PlayerService>((ref) async {
   return playerService;
 });
 
-// Single shared stub used for loading/error states — never plays audio.
+// Shared stub for loading/error states — never plays audio.
 final _stubService = PlayerService();
 
 final playerProvider =

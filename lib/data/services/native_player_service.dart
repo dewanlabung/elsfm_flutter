@@ -9,8 +9,9 @@ import '../models/track.dart';
 ///   MethodChannel  "com.elsfm.mobile/player"       Flutter → Native
 ///   EventChannel   "com.elsfm.mobile/player_events" Native → Flutter
 ///
-/// This service is a drop-in replacement for just_audio inside [PlayerService].
-/// It exposes the same stream types so no upstream Riverpod providers change.
+/// Audio lives in [ElsfmPlaybackService] (MediaSessionService) so it
+/// survives backgrounding, screen-off and lock-screen without extra work.
+/// The system automatically shows a media notification with controls.
 class NativePlayerService {
   static const _methodChannel =
       MethodChannel('com.elsfm.mobile/player');
@@ -18,16 +19,16 @@ class NativePlayerService {
       EventChannel('com.elsfm.mobile/player_events');
 
   // ── Broadcast stream controllers ─────────────────────────────────────────
-  final _isPlayingCtrl   = StreamController<bool>.broadcast();
-  final _positionCtrl    = StreamController<Duration>.broadcast();
-  final _durationCtrl    = StreamController<Duration?>.broadcast();
+  final _isPlayingCtrl    = StreamController<bool>.broadcast();
+  final _positionCtrl     = StreamController<Duration>.broadcast();
+  final _durationCtrl     = StreamController<Duration?>.broadcast();
   final _currentIndexCtrl = StreamController<int?>.broadcast();
-  final _stateCtrl       = StreamController<String>.broadcast();
-  final _errorCtrl       = StreamController<String?>.broadcast();
+  final _stateCtrl        = StreamController<String>.broadcast();
+  final _errorCtrl        = StreamController<String?>.broadcast();
 
   StreamSubscription<dynamic>? _eventSub;
 
-  // ── Public streams (mirrors just_audio API) ───────────────────────────────
+  // ── Public streams ────────────────────────────────────────────────────────
   Stream<bool>     get isPlayingStream    => _isPlayingCtrl.stream;
   Stream<Duration> get positionStream     => _positionCtrl.stream;
   Stream<Duration?> get durationStream   => _durationCtrl.stream;
@@ -35,23 +36,45 @@ class NativePlayerService {
   Stream<String>   get playerStateStream  => _stateCtrl.stream;
   Stream<String?>  get errorStream        => _errorCtrl.stream;
 
-  bool   _isPlaying    = false;
-  int?   _currentIndex;
-  Duration _position   = Duration.zero;
+  // ── Cached values for synchronous reads ──────────────────────────────────
+  bool      _isPlaying    = false;
+  int?      _currentIndex;
+  Duration  _position     = Duration.zero;
   Duration? _duration;
 
-  bool     get isPlaying    => _isPlaying;
-  int?     get currentIndex => _currentIndex;
-  Duration get position     => _position;
-  Duration? get duration    => _duration;
+  bool      get isPlaying    => _isPlaying;
+  int?      get currentIndex => _currentIndex;
+  Duration  get position     => _position;
+  Duration? get duration     => _duration;
+
+  // ── Retry on NOT_CONNECTED ────────────────────────────────────────────────
+  // The MediaController connects to ElsfmPlaybackService asynchronously.
+  // If a command arrives before the connection is ready, retry once after 1 s.
+  Future<T?> _invoke<T>(String method, [dynamic args]) async {
+    try {
+      return await _methodChannel.invokeMethod<T>(method, args);
+    } on PlatformException catch (e) {
+      if (e.code == 'NOT_CONNECTED') {
+        if (kDebugMode) debugPrint('[NativePlayerService] $method: not connected yet, retrying in 1s');
+        await Future<void>.delayed(const Duration(seconds: 1));
+        try {
+          return await _methodChannel.invokeMethod<T>(method, args);
+        } catch (e2) {
+          if (kDebugMode) debugPrint('[NativePlayerService] $method retry failed: $e2');
+          return null;
+        }
+      }
+      if (kDebugMode) debugPrint('[NativePlayerService] $method error: ${e.message}');
+      _errorCtrl.add(e.message);
+      return null;
+    }
+  }
 
   // ── Init / dispose ────────────────────────────────────────────────────────
   void init() {
     _eventSub = _eventChannel.receiveBroadcastStream().listen(
       _onEvent,
-      onError: (dynamic e) {
-        _errorCtrl.add(e.toString());
-      },
+      onError: (dynamic e) => _errorCtrl.add(e.toString()),
     );
   }
 
@@ -92,69 +115,49 @@ class NativePlayerService {
 
   // ── Playback control ──────────────────────────────────────────────────────
 
-  /// Send the full queue to native and prepare ExoPlayer.
-  /// Does NOT start playback — call [playAtIndex] or [play] afterwards.
   Future<void> setQueue(List<Track> tracks) async {
     final items = tracks
         .map((t) => {
               'id':     t.id,
-              'url':    t.src,   // already resolved full HTTPS URL
+              'url':    t.src,
               'title':  t.name,
               'artist': t.artists.isNotEmpty ? t.artists.first.name : '',
             })
         .toList();
-    await _methodChannel.invokeMethod<void>('setQueue', {'items': items});
-    if (kDebugMode) {
-      debugPrint('[NativePlayerService] setQueue: ${tracks.length} tracks');
-    }
+    await _invoke<void>('setQueue', {'items': items});
+    if (kDebugMode) debugPrint('[NativePlayerService] setQueue: ${tracks.length} tracks');
   }
 
   Future<void> playAtIndex(int index) async {
     if (kDebugMode) debugPrint('[NativePlayerService] playAtIndex $index');
-    await _methodChannel.invokeMethod<void>('playAtIndex', {'index': index});
+    await _invoke<void>('playAtIndex', {'index': index});
   }
 
-  Future<void> play() async {
-    await _methodChannel.invokeMethod<void>('play');
-  }
+  Future<void> play()  => _invoke<void>('play').then((_) {});
+  Future<void> pause() => _invoke<void>('pause').then((_) {});
+  Future<void> stop()  => _invoke<void>('stop').then((_) {});
 
-  Future<void> pause() async {
-    await _methodChannel.invokeMethod<void>('pause');
-  }
+  Future<void> seekTo(Duration position) =>
+      _invoke<void>('seekTo', {'positionMs': position.inMilliseconds})
+          .then((_) {});
 
-  Future<void> stop() async {
-    await _methodChannel.invokeMethod<void>('stop');
-  }
+  Future<void> skipNext()     => _invoke<void>('skipNext').then((_) {});
+  Future<void> skipPrevious() => _invoke<void>('skipPrevious').then((_) {});
 
-  Future<void> seekTo(Duration position) async {
-    await _methodChannel.invokeMethod<void>(
-        'seekTo', {'positionMs': position.inMilliseconds});
-  }
+  Future<void> setPlaybackSpeed(double speed) =>
+      _invoke<void>('setPlaybackSpeed', {'speed': speed}).then((_) {});
 
-  Future<void> skipNext() async {
-    await _methodChannel.invokeMethod<void>('skipNext');
-  }
+  Future<void> setRepeatMode(int mode) =>
+      _invoke<void>('setRepeatMode', {'mode': mode}).then((_) {});
 
-  Future<void> skipPrevious() async {
-    await _methodChannel.invokeMethod<void>('skipPrevious');
-  }
+  Future<void> setShuffleEnabled(bool enabled) =>
+      _invoke<void>('setShuffleEnabled', {'enabled': enabled}).then((_) {});
 
-  Future<void> setPlaybackSpeed(double speed) async {
-    await _methodChannel.invokeMethod<void>('setPlaybackSpeed', {'speed': speed});
-  }
-
-  Future<void> setRepeatMode(int mode) async {
-    await _methodChannel.invokeMethod<void>('setRepeatMode', {'mode': mode});
-  }
-
-  Future<void> setShuffleEnabled(bool enabled) async {
-    await _methodChannel.invokeMethod<void>('setShuffleEnabled', {'enabled': enabled});
-  }
-
+  // ── Dispose ───────────────────────────────────────────────────────────────
   Future<void> dispose() async {
     await _eventSub?.cancel();
     _eventSub = null;
-    await _methodChannel.invokeMethod<void>('release');
+    await _invoke<void>('release');
     await _isPlayingCtrl.close();
     await _positionCtrl.close();
     await _durationCtrl.close();

@@ -1,31 +1,34 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../../data/models/track.dart';
-import '../../../config/app_config.dart';
-import '../../library/providers/library_provider.dart';
-import '../../player/providers/player_notifier.dart';
+import '../providers/player_notifier.dart';
 import '../models/track_action.dart';
 import '../providers/track_actions_provider.dart';
 
-String _resolveImg(String? img) {
-  if (img == null || img.isEmpty) return '';
-  if (img.startsWith('http')) return img;
-  return 'https://www.elsfm.com/$img';
-}
-
 /// Shows the track context bottom sheet. Call this from any screen.
-void showTrackContextSheet(BuildContext context, Track track) {
+void showTrackContextSheet(
+  BuildContext context,
+  Track track, {
+  bool isLiked = false,
+  VoidCallback? onLikeTap,
+  VoidCallback? onDownload,
+  VoidCallback? onAddToPlaylist,
+  VoidCallback? onShare,
+}) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (_) => TrackContextMenu(track: track),
+    builder: (_) => TrackContextMenu(
+      track: track,
+      isLiked: isLiked,
+      onLikeTap: onLikeTap,
+      onDownload: onDownload,
+      onAddToPlaylist: onAddToPlaylist,
+      onShare: onShare,
+    ),
   );
 }
 
@@ -34,10 +37,8 @@ class TrackContextMenu extends ConsumerWidget {
   final VoidCallback? onShare;
   final VoidCallback? onDownload;
   final VoidCallback? onAddToPlaylist;
-  final VoidCallback? onAddToQueue;
   final VoidCallback? onViewDetails;
   final VoidCallback? onReportIssue;
-  final Offset? position;
   final bool isLiked;
   final VoidCallback? onLikeTap;
 
@@ -47,10 +48,8 @@ class TrackContextMenu extends ConsumerWidget {
     this.onShare,
     this.onDownload,
     this.onAddToPlaylist,
-    this.onAddToQueue,
     this.onViewDetails,
     this.onReportIssue,
-    this.position,
     this.isLiked = false,
     this.onLikeTap,
   });
@@ -105,18 +104,20 @@ class TrackContextMenu extends ConsumerWidget {
                     children: [
                       Text(
                         track.name,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         artistName,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
-                            ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -127,7 +128,34 @@ class TrackContextMenu extends ConsumerWidget {
             ),
           ),
           const Divider(height: 1),
-          // Like action
+
+          // Play now
+          _MenuTile(
+            icon: Icons.play_circle_outline,
+            label: 'Play now',
+            onTap: () {
+              Navigator.pop(context);
+              ref.read(playerProvider.notifier).playTrack(track);
+            },
+          ),
+
+          // Add to queue
+          _MenuTile(
+            icon: Icons.queue_music,
+            label: 'Add to queue',
+            onTap: () {
+              Navigator.pop(context);
+              ref.read(playerProvider.notifier).addToQueue(track);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('"${track.name}" added to queue'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+
+          // Like / unlike
           _MenuTile(
             icon: isLiked ? Icons.favorite : Icons.favorite_border,
             label: isLiked ? 'Unlike' : 'Like',
@@ -137,14 +165,21 @@ class TrackContextMenu extends ConsumerWidget {
               Navigator.pop(context);
             },
           ),
-          // Other actions
-          ...actions.map(
-            (action) => _MenuTile(
-              icon: _getIcon(action),
-              label: action.label,
-              onTap: () => _handleAction(context, action),
-            ),
-          ),
+
+          // Other dynamic actions
+          ...actions
+              .where((a) =>
+                  a != TrackAction.play &&
+                  a != TrackAction.addToQueue &&
+                  a != TrackAction.like &&
+                  a != TrackAction.unlike)
+              .map(
+                (action) => _MenuTile(
+                  icon: _getIcon(action),
+                  label: action.label,
+                  onTap: () => _handleAction(context, action),
+                ),
+              ),
           const SizedBox(height: 8),
         ],
       ),
@@ -161,7 +196,7 @@ class TrackContextMenu extends ConsumerWidget {
         child: const Icon(Icons.music_note, color: Colors.grey),
       );
 
-  Future<void> _handleAction(BuildContext context, TrackAction action) async {
+  void _handleAction(BuildContext context, TrackAction action) {
     Navigator.pop(context);
     switch (action) {
       case TrackAction.share:
@@ -170,8 +205,6 @@ class TrackContextMenu extends ConsumerWidget {
         onDownload?.call();
       case TrackAction.addToPlaylist:
         onAddToPlaylist?.call();
-      case TrackAction.addToQueue:
-        onAddToQueue?.call();
       case TrackAction.viewDetails:
         onViewDetails?.call();
       case TrackAction.reportIssue:
@@ -183,15 +216,15 @@ class TrackContextMenu extends ConsumerWidget {
 
   IconData _getIcon(TrackAction action) {
     return switch (action) {
-      TrackAction.play => Icons.play_arrow,
+      TrackAction.play          => Icons.play_arrow,
       TrackAction.addToPlaylist => Icons.playlist_add,
-      TrackAction.share => Icons.share,
-      TrackAction.download => Icons.download,
-      TrackAction.like => Icons.favorite,
-      TrackAction.unlike => Icons.favorite_border,
-      TrackAction.addToQueue => Icons.queue_music,
-      TrackAction.viewDetails => Icons.info_outline,
-      TrackAction.reportIssue => Icons.flag_outlined,
+      TrackAction.share         => Icons.share,
+      TrackAction.download      => Icons.download,
+      TrackAction.like          => Icons.favorite,
+      TrackAction.unlike        => Icons.favorite_border,
+      TrackAction.addToQueue    => Icons.queue_music,
+      TrackAction.viewDetails   => Icons.info_outline,
+      TrackAction.reportIssue   => Icons.flag_outlined,
     };
   }
 }
