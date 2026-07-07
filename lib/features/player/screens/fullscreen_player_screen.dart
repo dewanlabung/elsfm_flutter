@@ -138,7 +138,7 @@ class FullscreenPlayerScreen extends ConsumerWidget {
                                     .bodyLarge
                                     ?.copyWith(
                                       color: colorScheme.onSurface
-                                          .withValues(alpha: 0.7),
+                                          .withOpacity(0.7),
                                     ),
                               ),
                             ],

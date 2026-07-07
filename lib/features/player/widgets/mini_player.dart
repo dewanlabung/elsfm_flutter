@@ -89,7 +89,7 @@ class MiniPlayer extends ConsumerWidget {
                               .bodySmall
                               ?.copyWith(
                                   color: colorScheme.onSurface
-                                      .withValues(alpha: 0.6)),
+                                      .withOpacity(0.6)),
                         ),
                       ],
                     ),
