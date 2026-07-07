@@ -31,9 +31,6 @@ class NowPlayingScreen extends ConsumerWidget {
         isLiked: isLiked,
         onLikeTap: () =>
             ref.read(likeNotifierProvider.notifier).toggle(track.id),
-        onAddToQueue: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to queue')),
-        ),
         onShare: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Share coming soon')),
         ),
@@ -184,24 +181,27 @@ class NowPlayingScreen extends ConsumerWidget {
 
                       const SizedBox(height: 8),
 
-                      // ── Playback error (e.g. stream failed) ───────────────
+                      // ── Playback error ────────────────────────────────────
                       if (playerState.error != null)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
                               color: Colors.red.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 18),
+                                const Icon(Icons.warning_amber_rounded,
+                                    color: Colors.red, size: 18),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     playerState.error!,
-                                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                                    style: const TextStyle(
+                                        color: Colors.red, fontSize: 12),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
