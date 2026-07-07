@@ -25,13 +25,36 @@ class ElsfmApp extends ConsumerWidget {
   const ElsfmApp({super.key});
 
 
-  static ThemeData _buildTheme(Brightness brightness) => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1DB954),
-          brightness: brightness,
-        ),
-      );
+  // Colors scraped from elsfm.com web player (BeMusic theme)
+  static const _primary = Color(0xFF689F38);       // #689F38 green
+  static const _bgDark  = Color(0xFF23232C);       // #23232C main bg
+  static const _bgElevated = Color(0xFF121212);    // #121212 navbar
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    return ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: _primary,
+        brightness: brightness,
+        primary: _primary,
+        background: isDark ? _bgDark : Colors.grey.shade50,
+        surface: isDark ? _bgDark : Colors.white,
+        surfaceVariant: isDark ? _bgElevated : Colors.grey.shade100,
+      ),
+      scaffoldBackgroundColor: isDark ? _bgDark : Colors.grey.shade50,
+      appBarTheme: AppBarTheme(
+        backgroundColor: isDark ? _bgElevated : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black87,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: isDark ? _bgElevated : Colors.white,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

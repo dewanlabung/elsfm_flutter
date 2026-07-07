@@ -14,17 +14,13 @@ const _tokenKey = 'auth_token';
 const _cachedUserKey = 'cached_user';
 
 class AuthNotifier extends Notifier<AuthStateData> {
-  // Not `late final` — Notifier.build() can run again on the same instance
-  // whenever a watched dependency (authServiceProvider / dioProvider) changes,
-  // and reassigning a `late final` field throws LateInitializationError.
-  late AuthService _authService;
-  late FlutterSecureStorage _secureStorage;
+  late final AuthService _authService;
+  late final FlutterSecureStorage _secureStorage;
 
   @override
   AuthStateData build() {
     _authService = ref.watch(authServiceProvider);
     _secureStorage = ref.watch(secureStorageProvider);
-    // Kick off async init without blocking the synchronous build.
     Future.microtask(_initAuth);
     return AuthStateData.unauthenticated();
   }
@@ -66,22 +62,19 @@ class AuthNotifier extends Notifier<AuthStateData> {
         state = AuthStateData.authenticated(user);
         return;
       } on DioException catch (e) {
-        // Only clear token on 401 Unauthorized — not on network errors.
         if (e.response?.statusCode == 401) {
           await _secureStorage.delete(key: _tokenKey);
           await _clearCachedUser();
           _authService.clearToken();
         } else {
-          if (kDebugMode) debugPrint('Network error during auth init: $e');
-          // Network error — restore from cache so the user stays logged in offline.
+          // Network error — restore from cache so user stays logged in offline
           final cached = await _getCachedUser();
           if (cached != null) {
             state = AuthStateData.authenticated(cached);
             return;
           }
         }
-      } catch (e) {
-        if (kDebugMode) debugPrint('Auth init error: $e');
+      } catch (_) {
         final cached = await _getCachedUser();
         if (cached != null) {
           state = AuthStateData.authenticated(cached);
@@ -107,34 +100,16 @@ class AuthNotifier extends Notifier<AuthStateData> {
     }
   }
 
-  /// Login with a token obtained from WebView-based social OAuth callback.
-  Future<void> loginWithSocialToken(String token) async {
-    try {
-      state = state.copyWith(state: AuthState.authenticating);
-      _authService.setToken(token);
-      final user = await _authService.getCurrentUser();
-      await _secureStorage.write(key: _tokenKey, value: token);
-      await _cacheUser(user);
-      state = AuthStateData.authenticated(user);
-    } catch (e) {
-      _authService.clearToken();
-      state = AuthStateData.error('Social login failed: ${e.toString()}');
-    }
-  }
-
-  /// Sign in with the device's Google account (native account picker).
-  /// Returns false if native sign-in fails so the caller can fall back to WebView.
+  /// Returns true on native success, false if WebView fallback needed.
   Future<bool> loginWithGoogle() async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
       final service = GoogleSignInService();
       final googleResult = await service.signInWithGoogle();
-
       final result = await _authService.loginWithGoogleToken(
         accessToken: googleResult.accessToken,
         idToken: googleResult.idToken,
       );
-
       if (result.token != null) {
         await _secureStorage.write(key: _tokenKey, value: result.token!);
       }
@@ -142,13 +117,13 @@ class AuthNotifier extends Notifier<AuthStateData> {
       state = AuthStateData.authenticated(result.user);
       return true;
     } catch (e) {
-      if (kDebugMode) debugPrint('Native Google Sign-In failed: $e');
       state = AuthStateData.unauthenticated();
       return false;
     }
   }
 
-  /// Called after WebView social OAuth when no token in URL — rely on session cookie.
+
+  /// Called after WebView social OAuth when no token in URL — uses session cookie.
   Future<void> loginWithSession() async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
@@ -164,16 +139,26 @@ class AuthNotifier extends Notifier<AuthStateData> {
     }
   }
 
-  Future<void> register(
-    String name,
-    String email,
-    String password,
-    String passwordConfirmation,
-  ) async {
+  /// Called after WebView social OAuth with a token in URL.
+  Future<void> loginWithSocialToken(String token) async {
     try {
       state = state.copyWith(state: AuthState.authenticating);
-      final result = await _authService.register(
-          name, email, password, passwordConfirmation);
+      _authService.setToken(token);
+      final user = await _authService.getCurrentUser();
+      await _secureStorage.write(key: _tokenKey, value: token);
+      await _cacheUser(user);
+      state = AuthStateData.authenticated(user);
+    } catch (e) {
+      _authService.clearToken();
+      state = AuthStateData.error('Social login failed: ${e.toString()}');
+    }
+  }
+
+  /// Register a new account.
+  Future<void> register(String name, String email, String password, String passwordConfirmation) async {
+    try {
+      state = state.copyWith(state: AuthState.authenticating);
+      final result = await _authService.register(name, email, password, passwordConfirmation);
       if (result.token != null) {
         await _secureStorage.write(key: _tokenKey, value: result.token);
       }
@@ -191,8 +176,7 @@ class AuthNotifier extends Notifier<AuthStateData> {
   Future<void> updateProfile({String? name, String? email}) async {
     final userId = state.user?.id;
     if (userId == null) throw Exception('Not authenticated');
-    final user = await _authService.updateProfile(
-        userId: userId, name: name, email: email);
+    final user = await _authService.updateProfile(userId: userId, name: name, email: email);
     await _cacheUser(user);
     state = AuthStateData.authenticated(user);
   }
@@ -219,19 +203,14 @@ class AuthNotifier extends Notifier<AuthStateData> {
   }
 }
 
-final secureStorageProvider = Provider((ref) {
-  return const FlutterSecureStorage();
-});
+final secureStorageProvider = Provider((ref) => const FlutterSecureStorage());
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return ref.watch(dioProvider).when(
     data: (dio) => AuthService(dio),
-    loading: () =>
-        AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'))),
-    error: (_, __) =>
-        AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'))),
+    loading: () => AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'))),
+    error: (_, __) => AuthService(Dio(BaseOptions(baseUrl: 'https://www.elsfm.com/api/v1'))),
   );
 });
 
-final authNotifierProvider =
-    NotifierProvider<AuthNotifier, AuthStateData>(AuthNotifier.new);
+final authNotifierProvider = NotifierProvider<AuthNotifier, AuthStateData>(AuthNotifier.new);
